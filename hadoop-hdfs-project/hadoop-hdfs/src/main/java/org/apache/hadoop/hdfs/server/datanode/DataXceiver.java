@@ -532,9 +532,11 @@ class DataXceiver extends Receiver implements Runnable {
       clientName.length() > 0 && ClientTraceLog.isInfoEnabled()
         ? String.format(DN_CLIENTTRACE_FORMAT, localAddress, remoteAddress,
             "%d", "HDFS_READ", clientName, "%d",
-            dnR.getDatanodeUuid(), block, "%d")
-        : dnR + " Served block " + block + " to " +
+            (dnR != null ? dnR.getDatanodeUuid() : "default"), block, "%d")
+        : /*dnR +*/ " Served block " + block + " to " +
             remoteAddress;
+        
+    LOG.info("Reading blk with id " + block.getBlockId() + " and len " + length + " clientTraceFmt " + clientTraceFmt);
 
     updateCurrentThreadName("Sending block " + block);
     try {

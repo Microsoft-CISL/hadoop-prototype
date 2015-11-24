@@ -116,6 +116,11 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final boolean DFS_DATANODE_NON_LOCAL_LAZY_PERSIST_DEFAULT =
       false;
 
+  public static final String DFS_DATANODE_PROVIDED = "dfs.datanode.provided";
+  public static final boolean DFS_DATANODE_PROVIDED_DEFAULT = false;
+  public static final String DFS_DATANODE_PROVIDED_BLOCKIDFILE = "dfs.datanode.provided.blockIdFile";
+  public static final String DFS_NAMENODE_PROVIDED_BLKPID = "0";
+
   // This setting is for testing/internal use only.
   public static final String  DFS_DATANODE_DUPLICATE_REPLICA_DELETION = "dfs.datanode.duplicate.replica.deletion";
   public static final boolean DFS_DATANODE_DUPLICATE_REPLICA_DELETION_DEFAULT = true;

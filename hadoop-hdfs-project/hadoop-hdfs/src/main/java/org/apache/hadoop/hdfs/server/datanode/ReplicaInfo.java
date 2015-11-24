@@ -97,7 +97,7 @@ abstract public class ReplicaInfo extends Block
    * @return the full path of this replica's data file
    */
   public File getBlockFile() {
-    return new File(getDir(), getBlockName());
+    return getDir() != null ? new File(getDir(), getBlockName()) : null;
   }
   
   /**
@@ -105,8 +105,8 @@ abstract public class ReplicaInfo extends Block
    * @return the full path of this replica's meta file
    */
   public File getMetaFile() {
-    return new File(getDir(),
-        DatanodeUtil.getMetaName(getBlockName(), getGenerationStamp()));
+    return getDir() != null ? new File(getDir(),
+        DatanodeUtil.getMetaName(getBlockName(), getGenerationStamp())) : null;
   }
   
   /**
@@ -219,7 +219,7 @@ abstract public class ReplicaInfo extends Block
         + "\n  getBytesOnDisk()  = " + getBytesOnDisk()
         + "\n  getVisibleLength()= " + getVisibleLength()
         + "\n  getVolume()       = " + getVolume()
-        + "\n  getBlockFile()    = " + getBlockFile();
+        + "\n  getBlockFile()    = " + (getBlockFile() != null ? getBlockFile() : "NULL");
   }
 
   @Override

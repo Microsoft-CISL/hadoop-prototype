@@ -18,6 +18,7 @@
 package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
 
 import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.File;
@@ -25,9 +26,11 @@ import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.RandomAccessFile;
+import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.FileChannel;
@@ -42,6 +45,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.*;
 import java.util.concurrent.Executor;
+import java.util.AbstractMap.SimpleEntry;
 
 import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
@@ -52,6 +56,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocalFileSystem;
@@ -221,6 +226,26 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
   public LengthInputStream getMetaDataInputStream(ExtendedBlock b)
       throws IOException {
     File meta = FsDatasetUtil.getMetaFile(getBlockFile(b), b.getGenerationStamp());
+    
+    if (meta == null && blockIdtoFileMap != null) {
+      
+      //TODO have a way to read the meta data for these blocks!
+      long blockId = b.getBlockId(); 
+      AbstractMap.SimpleEntry<String, Long> blockEntry = blockIdtoFileMap.get(blockId);
+      
+      if(blockEntry != null) {
+        try {
+          //TODO have to have a meta-data file for the provided block!
+          String fileURIName = blockEntry.getKey();      
+          FileSystem fs = FileSystem.newInstance(URI.create(fileURIName), conf);          
+          FSDataInputStream ins = fs.open(new Path(URI.create(fileURIName)));
+          return new LengthInputStream(new FSDataInputStream(ins), 0);
+        } catch (IOException ex) {
+          throw new IOException("Block " + b + " is not valid. ");
+        }
+      }
+    }
+    
     if (meta == null || !meta.exists()) {
       return null;
     }
@@ -258,6 +283,8 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
   final LocalFileSystem localFS;
 
   private boolean blockPinningEnabled;
+  
+  HashMap<Long, SimpleEntry<String, Long> > blockIdtoFileMap;
   
   /**
    * An FSDataset has a directory where it loads its data files.
@@ -345,8 +372,83 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     blockPinningEnabled = conf.getBoolean(
       DFSConfigKeys.DFS_DATANODE_BLOCK_PINNING_ENABLED,
       DFSConfigKeys.DFS_DATANODE_BLOCK_PINNING_ENABLED_DEFAULT);
+    
+    //code for provided storage
+    boolean providedEnabled = conf.getBoolean(
+      DFSConfigKeys.DFS_DATANODE_PROVIDED, 
+      DFSConfigKeys.DFS_DATANODE_PROVIDED_DEFAULT);
+    
+    if(providedEnabled) {
+    //TODO have something reasonable for storage Uuid
+      String providedStorageUuid = "0"; 
+      FsVolumeImpl providedVolume = createFsVolume(providedStorageUuid, null, StorageType.PROVIDED);
+      //TODO - obtained provided pool id from NN?
+      providedVolume.addBlockPool(DFSConfigKeys.DFS_NAMENODE_PROVIDED_BLKPID, conf);
+      storageMap.put(providedStorageUuid,
+          new DatanodeStorage(providedStorageUuid,
+              DatanodeStorage.State.NORMAL,
+              StorageType.PROVIDED));
+      
+      volumes.addVolume(providedVolume.obtainReference());
+      volumeMap.initBlockPool(DFSConfigKeys.DFS_NAMENODE_PROVIDED_BLKPID);
+      //TODO verify if the DataStorage needs to know about this volume?
+      
+      try{
+        readInBlockIdtoFileMapForProvided(conf.get(DFSConfigKeys.DFS_DATANODE_PROVIDED_BLOCKIDFILE), providedVolume);
+      } catch (IOException e) {
+        LOG.warn("Error in reading the block id map file");
+      }
+    }
+    
   }
 
+  private void readInBlockIdtoFileMapForProvided(String blockIdFilename, FsVolumeImpl providedVolume) throws IOException {
+    
+    //assume the file is a local file
+    //expect the file to be a csv with blockId, URIname, offset
+    if(blockIdFilename == null) {
+      LOG.warn("Block id file not specified for provided type");
+    } else {
+      LOG.info("Block id map for provided is given-- file being used is " + blockIdFilename);
+      BufferedReader br = null;
+      blockIdtoFileMap = new HashMap<Long, AbstractMap.SimpleEntry<String, Long> >();
+      
+      try {
+        br = new BufferedReader(new FileReader(blockIdFilename));
+        String line = br.readLine();
+        
+        while (line != null) {
+          String[] blockIdMap = line.split(",");
+          if (blockIdMap.length == 4) {
+            if(this.blockIdtoFileMap.get(blockIdMap[0]) != null)
+              LOG.warn("Block id " + blockIdMap[0] + " has been repeated; taking in the latter map");
+            
+            long blockId = Long.parseLong(blockIdMap[0]);
+            String fileURI = blockIdMap[1].replace("\n", "").replace("\t", "");;
+            long offset = Long.parseLong(blockIdMap[2]);
+            long blockLen = Long.parseLong(blockIdMap[3]);
+            
+            this.blockIdtoFileMap.put(blockId, 
+                new AbstractMap.SimpleEntry<String, Long> (fileURI, offset));
+            
+            //create an entry in the volumeMap
+            ReplicaInfo info = new FinalizedReplica(blockId, blockLen, 0, providedVolume, null);
+            volumeMap.add(providedVolume.getBlockPoolList()[0], info);
+          }
+          line = br.readLine();
+        }
+        
+      } catch (FileNotFoundException e) {
+        LOG.warn("File " + blockIdFilename + " has not been found");
+      } finally {
+        if (br != null) {
+          br.close();
+        }
+      }
+    }
+    
+    
+  }
   /**
    * Gets initial volume failure information for all volumes that failed
    * immediately at startup.  The method works by determining the set difference
@@ -702,9 +804,10 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
    */
   File getBlockFile(String bpid, long blockId) throws IOException {
     File f = validateBlockFile(bpid, blockId);
-    if(f == null) {
-      throw new IOException("BlockId " + blockId + " is not valid.");
-    }
+    //getBlockFile can return a null full with the provided abstraction
+    //if(f == null) {
+      //throw new IOException("BlockId " + blockId + " is not valid.");
+    //}
     return f;
   }
   
@@ -733,7 +836,39 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
   @Override // FsDatasetSpi
   public InputStream getBlockInputStream(ExtendedBlock b,
       long seekOffset) throws IOException {
-    File blockFile = getBlockFileNoExistsCheck(b, true);
+    
+    //first look up if the block is provided
+    //TODO: have a better way to determine if the block is provided; e.g., indicate it in the ExtendedBlock
+    
+    if (blockIdtoFileMap != null) {
+      long blockId = b.getBlockId(); 
+      AbstractMap.SimpleEntry<String, Long> blockEntry = blockIdtoFileMap.get(blockId);
+    
+      if(blockEntry != null) {
+        try {
+          String fileURIName = blockEntry.getKey();
+          long fileOffset = blockEntry.getValue();
+          LOG.info("Provided block " + b + " found; maps to " + fileURIName + " offset " + fileOffset);
+          
+          FileSystem fs = FileSystem.newInstance(URI.create(fileURIName), conf);
+          
+          FSDataInputStream ins = fs.open(new Path(URI.create(fileURIName)));
+          ins.seek(fileOffset);
+          LOG.info("Opened file: " + fileURIName + " and ofseet is " + fileOffset);
+          //TODO how should we cache the block?
+          return new FSDataInputStream(ins);
+        } catch (IOException ex) {
+          throw new IOException("Block " + b + " is not valid. ");
+        }
+      }
+    }
+    
+    File blockFile = null;
+    try {
+      blockFile = getBlockFileNoExistsCheck(b, true);
+    } catch(IOException e) {
+      
+    }
     if (isNativeIOAvailable) {
       return NativeIO.getShareDeleteFileInputStream(blockFile, seekOffset);
     } else {
@@ -744,6 +879,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
             "Expected block file at " + blockFile + " does not exist.");
       }
     }
+    
   }
 
   /**
@@ -1805,7 +1941,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
         return f;
    
       // if file is not null, but doesn't exist - possibly disk failed
-      datanode.checkDiskErrorAsync();
+      //datanode.checkDiskErrorAsync();
     }
     
     if (LOG.isDebugEnabled()) {

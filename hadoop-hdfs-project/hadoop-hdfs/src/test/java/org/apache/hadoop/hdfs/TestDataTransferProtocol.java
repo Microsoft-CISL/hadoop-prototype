@@ -113,7 +113,10 @@ public class TestDataTransferProtocol {
 
       OutputStream out = sock.getOutputStream();
       // Should we excuse 
+      LOG.info("retBuf size is " + recvBuf.size());
       byte[] retBuf = new byte[recvBuf.size()];
+      //if(recvBuf.size() == 0)
+      //  retBuf = new byte[45];
       
       DataInputStream in = new DataInputStream(sock.getInputStream());
       out.write(sendBuf.toByteArray());
@@ -205,6 +208,45 @@ public class TestDataTransferProtocol {
       sendRecvData(description, false);
     } else {
       writeZeroLengthPacket(block, description);
+    }
+  }
+  
+  @Test
+  public void testProvidedRead() throws IOException {
+    
+    Random random = new Random();
+    int oneMil = 1024*1024;
+    Path file = new Path("dataprotocol.dat");
+    int numDataNodes = 1;
+    
+    Configuration conf = new HdfsConfiguration();
+    conf.setInt(DFSConfigKeys.DFS_REPLICATION_KEY, numDataNodes); 
+    conf.setBoolean(DFSConfigKeys.DFS_DATANODE_PROVIDED, true);
+    conf.set(DFSConfigKeys.DFS_DATANODE_PROVIDED_BLOCKIDFILE, "/home/virajith/blockid_map.txt");
+    
+    MiniDFSCluster cluster = new MiniDFSCluster.Builder(conf).numDataNodes(numDataNodes).build();
+    try {
+      cluster.waitActive();
+      datanode = cluster.getFileSystem().getDataNodeStats(DatanodeReportType.LIVE)[0];
+      dnAddr = NetUtils.createSocketAddr(datanode.getXferAddr());
+      FileSystem fileSys = cluster.getFileSystem();
+      
+      int fileLen = 10; //Math.min(conf.getInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, 4096), 4096);
+      
+      /* Test OP_READ_BLOCK */
+      long blockId = 1;
+      
+      String bpid = DFSConfigKeys.DFS_NAMENODE_PROVIDED_BLKPID;
+      ExtendedBlock blk = new ExtendedBlock(bpid, blockId); 
+      
+      sendBuf.reset();
+      recvBuf.reset();
+      sender.readBlock(blk, BlockTokenSecretManager.DUMMY_TOKEN, "cl",
+          0L, fileLen, true, CachingStrategy.newDefaultStrategy());
+      sendRecvData("Data received", false); 
+
+    } finally {
+      cluster.shutdown();
     }
   }
   

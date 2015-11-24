@@ -1547,7 +1547,9 @@ public class DataNode extends ReconfigurableBase
   throws IOException {
     BPOfferService bpos = blockPoolManager.get(bpid);
     if(bpos==null || bpos.bpRegistration==null) {
-      throw new IOException("cannot find BPOfferService for bpid="+bpid);
+      //TODO have to revert to exception if block pool id is not found
+      //throw new IOException("cannot find BPOfferService for bpid="+bpid);
+      return null;
     }
     return bpos.bpRegistration;
   }

@@ -45,6 +45,9 @@ public class FsDatasetUtil {
   }
   
   static File getMetaFile(File f, long gs) {
+    if (f == null)
+      return null;
+    
     return new File(f.getParent(),
         DatanodeUtil.getMetaName(f.getName(), gs));
   }

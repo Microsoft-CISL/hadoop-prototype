@@ -578,7 +578,7 @@ class BlockPoolSlice {
 
     // it's the same block so don't ever delete it, even if GS or size
     // differs.  caller should keep the one it just discovered on disk
-    if (replica1.getBlockFile().equals(replica2.getBlockFile())) {
+    if (replica1.getBlockFile() != null && replica1.getBlockFile().equals(replica2.getBlockFile())) {
       return null;
     }
     if (replica1.getGenerationStamp() != replica2.getGenerationStamp()) {
@@ -606,6 +606,9 @@ class BlockPoolSlice {
   private void deleteReplica(final ReplicaInfo replicaToDelete) {
     // Delete the files on disk. Failure here is okay.
     final File blockFile = replicaToDelete.getBlockFile();
+    if (blockFile == null)
+      return;
+    
     if (!blockFile.delete()) {
       LOG.warn("Failed to delete block file " + blockFile);
     }

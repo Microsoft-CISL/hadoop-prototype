@@ -116,8 +116,16 @@ public class FsVolumeImpl implements FsVolumeSpi {
         DFSConfigKeys.DFS_DATANODE_DU_RESERVED_DEFAULT);
     this.reservedForReplicas = new AtomicLong(0L);
     this.currentDir = currentDir;
-    File parent = currentDir.getParentFile();
-    this.usage = new DF(parent, conf);
+    File parent = null;
+    
+    if (currentDir != null){
+      parent = currentDir.getParentFile();
+      this.usage = new DF(parent, conf);
+    }
+    else {
+      //TODO how to define usage for the Provided type? (which is the one without the directory specified)
+      this.usage = null;
+    }
     this.storageType = storageType;
     this.configuredCapacity = -1;
     cacheExecutor = initializeCacheExecutor(parent);
@@ -138,7 +146,7 @@ public class FsVolumeImpl implements FsVolumeSpi {
 
     ThreadFactory workerFactory = new ThreadFactoryBuilder()
         .setDaemon(true)
-        .setNameFormat("FsVolumeImplWorker-" + parent.toString() + "-%d")
+        .setNameFormat("FsVolumeImplWorker-" + (parent != null ? parent.toString() : "<NULL>") + "-%d")
         .build();
     ThreadPoolExecutor executor = new ThreadPoolExecutor(
         1, maxNumThreads,
@@ -329,7 +337,10 @@ public class FsVolumeImpl implements FsVolumeSpi {
   @VisibleForTesting
   public long getCapacity() {
     if (configuredCapacity < 0) {
-      long remaining = usage.getCapacity() - reserved;
+      long remaining = 0; 
+      if (usage != null) {
+        remaining = usage.getCapacity() - reserved;
+      }
       return remaining > 0 ? remaining : 0;
     }
 
@@ -355,10 +366,12 @@ public class FsVolumeImpl implements FsVolumeSpi {
   @Override
   public long getAvailable() throws IOException {
     long remaining = getCapacity() - getDfsUsed() - reservedForReplicas.get();
-    long available = usage.getAvailable() - reserved
-        - reservedForReplicas.get();
-    if (remaining > available) {
-      remaining = available;
+    if (usage != null) {
+      long available = usage.getAvailable() - reserved
+          - reservedForReplicas.get();
+      if (remaining > available) {
+        remaining = available;
+      }
     }
     return (remaining > 0) ? remaining : 0;
   }
@@ -387,7 +400,8 @@ public class FsVolumeImpl implements FsVolumeSpi {
 
   @Override
   public String getBasePath() {
-    return currentDir.getParent();
+    //TODO have a consistent way for path for provided volumes
+    return currentDir != null ? currentDir.getParent() : "NULL";
   }
   
   @Override
@@ -542,7 +556,8 @@ public class FsVolumeImpl implements FsVolumeSpi {
     private BlockIteratorState state;
 
     BlockIteratorImpl(String bpid, String name) {
-      this.bpidDir = new File(currentDir, bpid);
+      //TODO write a block pool iterator for a PROVIDED pool
+      this.bpidDir = currentDir != null ? new File(currentDir, bpid) : null;
       this.name = name;
       this.bpid = bpid;
       rewind();
@@ -844,7 +859,7 @@ public class FsVolumeImpl implements FsVolumeSpi {
   
   @Override
   public String toString() {
-    return currentDir.getAbsolutePath();
+    return currentDir != null ? currentDir.getAbsolutePath() : "NULL";
   }
 
   void shutdown() {
