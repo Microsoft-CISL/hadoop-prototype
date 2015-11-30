@@ -229,21 +229,22 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     
     if (meta == null && blockIdtoFileMap != null) {
       
-      //TODO have a way to read the meta data for these blocks!
-      long blockId = b.getBlockId(); 
-      AbstractMap.SimpleEntry<String, Long> blockEntry = blockIdtoFileMap.get(blockId);
-      
-      if(blockEntry != null) {
-        try {
-          //TODO have to have a meta-data file for the provided block!
-          String fileURIName = blockEntry.getKey();      
-          FileSystem fs = FileSystem.newInstance(URI.create(fileURIName), conf);          
-          FSDataInputStream ins = fs.open(new Path(URI.create(fileURIName)));
-          return new LengthInputStream(new FSDataInputStream(ins), 0);
-        } catch (IOException ex) {
-          throw new IOException("Block " + b + " is not valid. ");
-        }
-      }
+      //TODO have a way to read the "real" meta data for these blocks!
+      meta = FsDatasetUtil.createNullChecksumFile(DatanodeUtil.getMetaName(b.getBlockName(), b.getGenerationStamp())); 
+//      long blockId = b.getBlockId(); 
+//      AbstractMap.SimpleEntry<String, Long> blockEntry = blockIdtoFileMap.get(blockId);
+//      
+//      if(blockEntry != null) {
+//        try {
+//          //TODO have to have a meta-data file for the provided block!
+//          String fileURIName = blockEntry.getKey();      
+//          FileSystem fs = FileSystem.newInstance(URI.create(fileURIName), conf);          
+//          FSDataInputStream ins = fs.open(new Path(URI.create(fileURIName)));
+//          return new LengthInputStream(new FSDataInputStream(ins), 0);
+//        } catch (IOException ex) {
+//          throw new IOException("Block " + b + " is not valid. ");
+//        }
+//      }
     }
     
     if (meta == null || !meta.exists()) {
@@ -284,7 +285,33 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
 
   private boolean blockPinningEnabled;
   
-  HashMap<Long, SimpleEntry<String, Long> > blockIdtoFileMap;
+  class ProvidedBlockInfo {
+    
+    long offsetInFile;
+    long blockLength;
+    String fileURI;
+    
+    ProvidedBlockInfo(long offsetInFile, long blockLength, String fileURI) {
+      this.offsetInFile = offsetInFile;
+      this.blockLength = blockLength;
+      this.fileURI = fileURI;
+    }
+    
+    long getOffsetInFile() {
+      return offsetInFile;
+    }
+    
+    long getBlockLength() {
+      return blockLength; 
+    }
+    
+    String getFileURI() {
+      return fileURI;
+    }
+  }
+  
+  HashMap<Long, ProvidedBlockInfo > blockIdtoFileMap;
+  HashMap<Long, File > cachedBlockIdToFileMap;
   
   /**
    * An FSDataset has a directory where it loads its data files.
@@ -392,7 +419,11 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
       volumes.addVolume(providedVolume.obtainReference());
       volumeMap.initBlockPool(DFSConfigKeys.DFS_NAMENODE_PROVIDED_BLKPID);
       //TODO verify if the DataStorage needs to know about this volume?
-      
+      //create the directory where blocks are cached locally
+      File cacheDir = new File(DFSConfigKeys.DFS_DATANODE_PROVIDED_BLKCACHE);
+      if(!cacheDir.exists())
+        cacheDir.mkdirs();
+      cachedBlockIdToFileMap = new HashMap<Long, File>();
       try{
         readInBlockIdtoFileMapForProvided(conf.get(DFSConfigKeys.DFS_DATANODE_PROVIDED_BLOCKIDFILE), providedVolume);
       } catch (IOException e) {
@@ -411,7 +442,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     } else {
       LOG.info("Block id map for provided is given-- file being used is " + blockIdFilename);
       BufferedReader br = null;
-      blockIdtoFileMap = new HashMap<Long, AbstractMap.SimpleEntry<String, Long> >();
+      blockIdtoFileMap = new HashMap<Long, ProvidedBlockInfo>();
       
       try {
         br = new BufferedReader(new FileReader(blockIdFilename));
@@ -428,8 +459,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
             long offset = Long.parseLong(blockIdMap[2]);
             long blockLen = Long.parseLong(blockIdMap[3]);
             
-            this.blockIdtoFileMap.put(blockId, 
-                new AbstractMap.SimpleEntry<String, Long> (fileURI, offset));
+            this.blockIdtoFileMap.put(blockId, new ProvidedBlockInfo(offset, blockLen, fileURI));
             
             //create an entry in the volumeMap
             ReplicaInfo info = new FinalizedReplica(blockId, blockLen, 0, providedVolume, null);
@@ -841,21 +871,29 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     //TODO: have a better way to determine if the block is provided; e.g., indicate it in the ExtendedBlock
     
     if (blockIdtoFileMap != null) {
-      long blockId = b.getBlockId(); 
-      AbstractMap.SimpleEntry<String, Long> blockEntry = blockIdtoFileMap.get(blockId);
+      long blockId = b.getBlockId();
+      
+      if(cachedBlockIdToFileMap != null && cachedBlockIdToFileMap.containsKey(blockId)) {
+        //this block is cached
+        LOG.info("CACHE HIT! for block " + blockId);
+        return openAndSeek(cachedBlockIdToFileMap.get(blockId), seekOffset);
+      }
+      
+      ProvidedBlockInfo blockEntry = blockIdtoFileMap.get(blockId);
     
       if(blockEntry != null) {
         try {
-          String fileURIName = blockEntry.getKey();
-          long fileOffset = blockEntry.getValue();
+          String fileURIName = blockEntry.getFileURI();
+          long fileOffset = blockEntry.getOffsetInFile();
           LOG.info("Provided block " + b + " found; maps to " + fileURIName + " offset " + fileOffset);
           
           FileSystem fs = FileSystem.newInstance(URI.create(fileURIName), conf);
           
           FSDataInputStream ins = fs.open(new Path(URI.create(fileURIName)));
-          ins.seek(fileOffset);
-          LOG.info("Opened file: " + fileURIName + " and ofseet is " + fileOffset);
-          //TODO how should we cache the block?
+          ins.seek(fileOffset + seekOffset);
+          LOG.info("Opened file: " + fileURIName + " and offset is " + fileOffset);
+          //TODO we are not limiting the size for which this stream is read. the onus lies on the client -- how can we limit this?
+          cacheBlockInTier(b, blockEntry);
           return new FSDataInputStream(ins);
         } catch (IOException ex) {
           throw new IOException("Block " + b + " is not valid. ");
@@ -879,6 +917,69 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
             "Expected block file at " + blockFile + " does not exist.");
       }
     }
+    
+  }
+
+  private void cacheBlockInTier(ExtendedBlock b, ProvidedBlockInfo blkInfo) {
+    //current implementation: 
+    //(1) we cache all blocks
+    //(2) read entire block from specified URI and written to a local file in a cache block directory 
+    //so all cached blocks are on disk
+    //TODO determine when the block should be cached 
+    //TODO determine which layer to cache the block in
+    //TODO do this asynchronously
+    //TODO use the regular path from BlockReceiver to do this? (create temp files etc.)
+    //TODO inform the NN that this is cached? how does this DN know this block is cached?
+
+    String fileURIName = blkInfo.getFileURI();
+    long fileOffset = blkInfo.getOffsetInFile();
+    long blkLen = blkInfo.getBlockLength();
+    
+    FileSystem fs;
+    try {
+      fs = FileSystem.newInstance(URI.create(fileURIName), conf);
+      FSDataInputStream ins = fs.open(new Path(URI.create(fileURIName)));
+      ins.seek(fileOffset);
+
+      //create a local file for the block
+      //two options: 
+      //(1) create on one of the FSVolumes but then we would have to keep track and delete them; 
+      //  have to create a ReplicaInfo with this vol and add to ReplicaMap
+      //(2) create in a temp directory but then we have to report to the NN(?)
+      //create a new cache map; use that to read blocks which are cached 
+      
+      File blkFile = new File(DFSConfigKeys.DFS_DATANODE_PROVIDED_BLKCACHE, b.getBlockName());
+      //read upto blkLen bytes from remote fs and write to file
+      int BUF_SIZE = 512;
+      byte[] buf = new byte[BUF_SIZE];
+
+      if (blkFile == null) {
+        //file creation failed; may be to lack of space; evict files and try!
+        //TODO
+      }
+      LOG.info("Caching blk " + b.getBlockId() + " of length " + blkLen);
+      FileOutputStream fout = new FileOutputStream(blkFile);      
+      long remainingBytes = blkLen;
+      while(remainingBytes > 0) {
+        int bytesToRead = (int) (remainingBytes < BUF_SIZE ? remainingBytes : BUF_SIZE);
+        int bytesRead = ins.read(buf, 0, bytesToRead);
+        remainingBytes -= bytesRead;
+        fout.write(buf, 0, bytesRead);
+      }
+      
+      fout.close();
+      ins.close();
+      fs.close();
+      //update the data structures maintained in the FSDatasetImpl with this new block's info
+      
+      cachedBlockIdToFileMap.put(b.getBlockId(), blkFile);
+      
+    } catch (IOException e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    }
+   
+
     
   }
 

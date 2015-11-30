@@ -22,8 +22,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.hadoop.classification.InterfaceAudience;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.FsVolumeSpi;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.FsDatasetUtil;
 import org.apache.hadoop.util.LightWeightResizableGSet;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -105,6 +107,12 @@ abstract public class ReplicaInfo extends Block
    * @return the full path of this replica's meta file
    */
   public File getMetaFile() {
+    //if the block is provided, then we create a new file everything this is accessed; we create a null checksum file
+    //TODO create a meta file which has checksums for actual data in the Provided block
+    //TODO if/when the block is cached, we can create a file which lies around for this block.
+    if(volume.getStorageType() == StorageType.PROVIDED) {      
+      return FsDatasetUtil.createNullChecksumFile(DatanodeUtil.getMetaName(getBlockName(), getGenerationStamp()));
+    }
     return getDir() != null ? new File(getDir(),
         DatanodeUtil.getMetaName(getBlockName(), getGenerationStamp())) : null;
   }

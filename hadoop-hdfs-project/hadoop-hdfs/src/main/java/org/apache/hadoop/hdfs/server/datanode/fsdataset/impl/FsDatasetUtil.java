@@ -17,7 +17,10 @@
  */
 package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
 
+import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.util.Arrays;
@@ -25,7 +28,9 @@ import java.util.Arrays;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants;
+import org.apache.hadoop.hdfs.server.datanode.BlockMetadataHeader;
 import org.apache.hadoop.hdfs.server.datanode.DatanodeUtil;
+import org.apache.hadoop.util.DataChecksum;
 
 /** Utility methods. */
 @InterfaceAudience.Private
@@ -42,6 +47,21 @@ public class FsDatasetUtil {
     }
     final int n = name.length() - DatanodeUtil.UNLINK_BLOCK_SUFFIX.length(); 
     return new File(unlinkTmpFile.getParentFile(), name.substring(0, n));
+  }
+  
+  public static File createNullChecksumFile(String filename) {
+    
+    DataChecksum csum = DataChecksum.newDataChecksum(DataChecksum.Type.NULL, 512);
+    try {
+      DataOutputStream dataOut = new DataOutputStream(new FileOutputStream(filename));
+      BlockMetadataHeader.writeHeader(dataOut, csum);
+      dataOut.close();
+      return new File(filename);
+    } catch (IOException e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+    }    
+    return null;
   }
   
   static File getMetaFile(File f, long gs) {
