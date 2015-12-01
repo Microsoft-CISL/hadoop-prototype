@@ -12,20 +12,20 @@ import org.apache.hadoop.io.DataInputBuffer;
 import org.apache.hadoop.io.DataOutputBuffer;
 import org.apache.hadoop.io.compress.CompressionCodec;
 
-import static org.apache.hadoop.hdfs.server.namenode.CSVBlockFormat.*;
+import static org.apache.hadoop.hdfs.server.namenode.TextFileRegionFormat.*;
 
 import org.junit.Test;
 import static org.junit.Assert.*;
 
-public class TestCSVFormat {
+public class TestTextBlockFormat {
 
   static final Path OUTFILE = new Path("yak://dingo:4344/bar/baz");
 
-  void check(CSVWriter.Options opts, final Path vp,
+  void check(TextWriter.Options opts, final Path vp,
       final Class<? extends CompressionCodec> vc) throws IOException {
-    CSVBlockFormat mFmt = new CSVBlockFormat() {
+    TextFileRegionFormat mFmt = new TextFileRegionFormat() {
       @Override
-      CSVWriter createWriter(Path file, CompressionCodec codec, String delim,
+      TextWriter createWriter(Path file, CompressionCodec codec, String delim,
           Configuration conf) throws IOException {
         assertEquals(vp, file);
         if (null == vc) {
@@ -41,7 +41,7 @@ public class TestCSVFormat {
 
   @Test
   public void testWriterOptions() throws Exception {
-    CSVWriter.Options opts = CSVWriter.defaults();
+    TextWriter.Options opts = TextWriter.defaults();
     assertTrue(opts instanceof WriterOptions);
     WriterOptions wopts = (WriterOptions) opts;
     Path curdir = new Path(new File(".").toURI().toString());
@@ -65,13 +65,13 @@ public class TestCSVFormat {
     FileRegion r1 = new FileRegion("blk_4344", OUTFILE, 0, 1024);
     FileRegion r2 = new FileRegion("blk_4345", OUTFILE, 1024, 1024);
     FileRegion r3 = new FileRegion("blk_4346", OUTFILE, 2048, 512);
-    try (CSVWriter csv = new CSVWriter(new OutputStreamWriter(out), ",")) {
+    try (TextWriter csv = new TextWriter(new OutputStreamWriter(out), ",")) {
       csv.store(r1);
       csv.store(r2);
       csv.store(r3);
     }
     Iterator<FileRegion> i3;
-    try (CSVReader csv = new CSVReader(null, null, null, ",") {
+    try (TextReader csv = new TextReader(null, null, null, ",") {
       @Override
       InputStream createStream() {
         DataInputBuffer in = new DataInputBuffer();
@@ -105,13 +105,13 @@ public class TestCSVFormat {
     FileRegion r1 = new FileRegion("blk_4344", OUTFILE, 0, 1024);
     FileRegion r2 = new FileRegion("blk_4345", OUTFILE, 1024, 1024);
     FileRegion r3 = new FileRegion("blk_4346", OUTFILE, 2048, 512);
-    try (CSVWriter csv = new CSVWriter(new OutputStreamWriter(out), "\t")) {
+    try (TextWriter csv = new TextWriter(new OutputStreamWriter(out), "\t")) {
       csv.store(r1);
       csv.store(r2);
       csv.store(r3);
     }
     Iterator<FileRegion> i3;
-    try (CSVReader csv = new CSVReader(null, null, null, "\t") {
+    try (TextReader csv = new TextReader(null, null, null, "\t") {
       @Override
       InputStream createStream() {
         DataInputBuffer in = new DataInputBuffer();

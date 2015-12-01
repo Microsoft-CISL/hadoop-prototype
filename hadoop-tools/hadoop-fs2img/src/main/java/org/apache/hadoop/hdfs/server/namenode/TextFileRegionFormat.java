@@ -25,10 +25,9 @@ import org.apache.hadoop.io.compress.CompressionCodecFactory;
 
 import com.google.common.annotations.VisibleForTesting;
 
-// TODO: rename to CSVFileRegionFormat
 // TODO: refactor to abstract file format
 // TODO: move delimiter to common
-public class CSVBlockFormat extends BlockFormat<FileRegion> {
+public class TextFileRegionFormat extends BlockFormat<FileRegion> {
 
   public static final String DEFNAME   = "blocks.csv";
   public static final String DELIMITER = ",";
@@ -47,12 +46,12 @@ public class CSVBlockFormat extends BlockFormat<FileRegion> {
   }
 
   @VisibleForTesting
-  CSVReader createReader(Path file, String delim, Configuration conf)
+  TextReader createReader(Path file, String delim, Configuration conf)
       throws IOException {
     FileSystem fs = file.getFileSystem(conf);
     CompressionCodecFactory factory = new CompressionCodecFactory(conf);
     CompressionCodec codec = factory.getCodec(file);
-    return new CSVReader(fs, file, codec, delim);
+    return new TextReader(fs, file, codec, delim);
   }
 
   @Override
@@ -75,16 +74,16 @@ public class CSVBlockFormat extends BlockFormat<FileRegion> {
   }
 
   @VisibleForTesting
-  CSVWriter createWriter(Path file, CompressionCodec codec, String delim,
+  TextWriter createWriter(Path file, CompressionCodec codec, String delim,
       Configuration conf) throws IOException {
     FileSystem fs = file.getFileSystem(conf);
     OutputStream tmp = fs.create(file);
     java.io.Writer out = new BufferedWriter(new OutputStreamWriter(
           (null == codec) ? tmp : codec.createOutputStream(tmp), "UTF-8"));
-    return new CSVWriter(out, delim);
+    return new TextWriter(out, delim);
   }
 
-  public static class ReaderOptions implements CSVReader.Options, Configurable {
+  public static class ReaderOptions implements TextReader.Options, Configurable {
 
     public static final String FILEPATH = "hdfs.image.block.csv.read.path";
     public static final String DELIMITER = "hdfs.image.block.csv.delimiter";
@@ -119,7 +118,7 @@ public class CSVBlockFormat extends BlockFormat<FileRegion> {
 
   }
 
-  public static class WriterOptions implements CSVWriter.Options, Configurable {
+  public static class WriterOptions implements TextWriter.Options, Configurable {
 
     public static final String CODEC     = "hdfs.image.block.csv.read.codec";
     public static final String FILEPATH  = "hdfs.image.block.csv.write.path";
@@ -162,7 +161,7 @@ public class CSVBlockFormat extends BlockFormat<FileRegion> {
 
   }
 
-  static class CSVReader extends Reader<FileRegion> {
+  static class TextReader extends Reader<FileRegion> {
 
     public interface Options extends Reader.Options {
       Options filename(Path file);
@@ -179,13 +178,13 @@ public class CSVBlockFormat extends BlockFormat<FileRegion> {
     private final CompressionCodec codec;
     private final Map<FRIterator,BufferedReader> iterators;
 
-    protected CSVReader(FileSystem fs, Path file, CompressionCodec codec,
+    protected TextReader(FileSystem fs, Path file, CompressionCodec codec,
         String delim) {
       this(fs, file, codec, delim,
           new IdentityHashMap<FRIterator,BufferedReader>());
     }
 
-    CSVReader(FileSystem fs, Path file, CompressionCodec codec, String delim,
+    TextReader(FileSystem fs, Path file, CompressionCodec codec, String delim,
         Map<FRIterator,BufferedReader> iterators) {
       this.fs = fs;
       this.file = file;
@@ -304,12 +303,12 @@ public class CSVBlockFormat extends BlockFormat<FileRegion> {
 
   }
 
-  static class CSVWriter extends Writer<FileRegion> {
+  static class TextWriter extends Writer<FileRegion> {
 
     final String delim;
     final java.io.Writer out;
 
-    protected CSVWriter(java.io.Writer out, String delim) {
+    protected TextWriter(java.io.Writer out, String delim) {
       this.out = out;
       this.delim = delim;
     }
