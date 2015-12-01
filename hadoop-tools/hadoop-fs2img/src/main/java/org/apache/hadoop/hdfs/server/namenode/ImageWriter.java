@@ -48,6 +48,7 @@ import org.apache.hadoop.util.StringUtils;
 
 import static org.apache.hadoop.hdfs.server.namenode.FSImageUtil.MAGIC_HEADER;
 
+// TODO: generalize to types beyond FileRegion
 public class ImageWriter implements Closeable {
 
   static final int ONDISK_VERSION = 1;
@@ -77,7 +78,7 @@ public class ImageWriter implements Closeable {
     .setOndiskVersion(ONDISK_VERSION)
     .setLayoutVersion(LAYOUT_VERSION);
 
-  public static Options opts() {
+  public static Options defaults() {
     return new Options();
   }
 
@@ -123,12 +124,16 @@ public class ImageWriter implements Closeable {
     curInode = new AtomicLong(startInode);
     dircache = Collections.synchronizedMap(new DirEntryCache(opts.maxdircache));
 
-    ugis = ReflectionUtils.newInstance(opts.ugis, opts.getConf());
-    // TODO: generalize to types beyond FileRegion
-    BlockFormat<FileRegion> fmt =
-        ReflectionUtils.newInstance(opts.blocks, opts.getConf());
+    ugis = null == opts.ugis
+      ? ReflectionUtils.newInstance(opts.ugisClass, opts.getConf())
+      : opts.ugis;
+    BlockFormat<FileRegion> fmt = null == opts.blocks
+      ? ReflectionUtils.newInstance(opts.blocksClass, opts.getConf())
+      : opts.blocks;
     blocks = fmt.getWriter(null);
-    blockIds = ReflectionUtils.newInstance(opts.blockIds, opts.getConf());
+    blockIds = null == opts.blockIds
+      ? ReflectionUtils.newInstance(opts.blockIdsClass, opts.getConf())
+      : opts.blockIds;
 
     // create directory and inode sections as side-files
     dirsTmp = File.createTempFile("fsimg_dir", null);
@@ -230,7 +235,7 @@ public class ImageWriter implements Closeable {
     dircache.clear();
 
     // close side files
-    IOUtils.cleanup(null, dirs, inodes);
+    IOUtils.cleanup(null, dirs, inodes, blocks);
     if (null == dirs || null == inodes) {
       // init failed
       if (raw != null) {
@@ -476,10 +481,13 @@ public class ImageWriter implements Closeable {
     int maxdircache;
     long startBlock;
     long startInode;
-    Class<? extends UGIResolver> ugis;
+    UGIResolver ugis;
+    Class<? extends UGIResolver> ugisClass;
+    BlockFormat<FileRegion> blocks;
     @SuppressWarnings("rawtypes")
-    Class<? extends BlockFormat> blocks;
-    Class<? extends BlockResolver> blockIds;
+    Class<? extends BlockFormat> blocksClass;
+    BlockResolver blockIds;
+    Class<? extends BlockResolver> blockIdsClass;
     FSImageCompression compress = FSImageCompression.createNoopCompression();
 
     protected Options() {
@@ -494,11 +502,11 @@ public class ImageWriter implements Closeable {
       startBlock = conf.getLong(START_BLOCK, (1L << 30) + 1);
       startInode = conf.getLong(START_INODE, (1L << 14) + 1);
       maxdircache = conf.getInt(CACHE_ENTRY, 100);
-      ugis = conf.getClass(UGI_CLASS,
+      ugisClass = conf.getClass(UGI_CLASS,
           SingleUGIResolver.class, UGIResolver.class);
-      blocks = conf.getClass(BLOCK_CLASS,
+      blocksClass = conf.getClass(BLOCK_CLASS,
           NullBlockFormat.class, BlockFormat.class);
-      blockIds = conf.getClass(BLKID_CLASS,
+      blockIdsClass = conf.getClass(BLKID_CLASS,
           FixedBlockResolver.class, BlockResolver.class);
     }
 
@@ -527,19 +535,34 @@ public class ImageWriter implements Closeable {
       return this;
     }
 
-    public Options ugi(Class<? extends UGIResolver> ugis) {
+    public Options ugi(UGIResolver ugis) {
       this.ugis = ugis;
       return this;
     }
 
-    public Options blockIds(Class<? extends BlockResolver> blockIds) {
+    public Options ugi(Class<? extends UGIResolver> ugisClass) {
+      this.ugisClass = ugisClass;
+      return this;
+    }
+
+    public Options blockIds(BlockResolver blockIds) {
       this.blockIds = blockIds;
       return this;
     }
 
-    @SuppressWarnings("rawtypes")
-    public Options blocks(Class<? extends BlockFormat> blocks) {
+    public Options blockIds(Class<? extends BlockResolver> blockIdsClass) {
+      this.blockIdsClass = blockIdsClass;
+      return this;
+    }
+
+    public Options blocks(BlockFormat<FileRegion> blocks) {
       this.blocks = blocks;
+      return this;
+    }
+
+    @SuppressWarnings("rawtypes")
+    public Options blocks(Class<? extends BlockFormat> blocksClass) {
+      this.blocksClass = blocksClass;
       return this;
     }
 

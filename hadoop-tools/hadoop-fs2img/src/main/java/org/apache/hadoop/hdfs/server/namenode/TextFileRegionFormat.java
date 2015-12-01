@@ -17,6 +17,7 @@ import java.util.NoSuchElementException;
 
 import org.apache.hadoop.conf.Configurable;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.LocalFileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.io.MultipleIOException;
@@ -27,14 +28,34 @@ import com.google.common.annotations.VisibleForTesting;
 
 // TODO: refactor to abstract file format
 // TODO: move delimiter to common
-public class TextFileRegionFormat extends BlockFormat<FileRegion> {
+public class TextFileRegionFormat
+    extends BlockFormat<FileRegion> implements Configurable {
 
   public static final String DEFNAME   = "blocks.csv";
   public static final String DELIMITER = ",";
 
+  private Configuration conf;
+  private ReaderOptions readerOpts = TextReader.defaults();
+  private WriterOptions writerOpts = TextWriter.defaults();
+
+  @Override
+  public void setConf(Configuration conf) {
+    readerOpts.setConf(conf);
+    writerOpts.setConf(conf);
+    this.conf = conf;
+  }
+
+  @Override
+  public Configuration getConf() {
+    return conf;
+  }
+
   @Override
   public Reader<FileRegion> getReader(Reader.Options opts)
       throws IOException {
+    if (null == opts) {
+      opts = readerOpts;
+    }
     if (!(opts instanceof ReaderOptions)) {
       throw new IllegalArgumentException("Invalid options " + opts.getClass());
     }
@@ -49,6 +70,9 @@ public class TextFileRegionFormat extends BlockFormat<FileRegion> {
   TextReader createReader(Path file, String delim, Configuration conf)
       throws IOException {
     FileSystem fs = file.getFileSystem(conf);
+    if (fs instanceof LocalFileSystem) {
+      fs = ((LocalFileSystem)fs).getRaw();
+    }
     CompressionCodecFactory factory = new CompressionCodecFactory(conf);
     CompressionCodec codec = factory.getCodec(file);
     return new TextReader(fs, file, codec, delim);
@@ -56,6 +80,9 @@ public class TextFileRegionFormat extends BlockFormat<FileRegion> {
 
   @Override
   public Writer<FileRegion> getWriter(Writer.Options opts) throws IOException {
+    if (null == opts) {
+      opts = writerOpts;
+    }
     if (!(opts instanceof WriterOptions)) {
       throw new IllegalArgumentException("Invalid options " + opts.getClass());
     }
@@ -77,6 +104,9 @@ public class TextFileRegionFormat extends BlockFormat<FileRegion> {
   TextWriter createWriter(Path file, CompressionCodec codec, String delim,
       Configuration conf) throws IOException {
     FileSystem fs = file.getFileSystem(conf);
+    if (fs instanceof LocalFileSystem) {
+      fs = ((LocalFileSystem)fs).getRaw();
+    }
     OutputStream tmp = fs.create(file);
     java.io.Writer out = new BufferedWriter(new OutputStreamWriter(
           (null == codec) ? tmp : codec.createOutputStream(tmp), "UTF-8"));
@@ -95,8 +125,9 @@ public class TextFileRegionFormat extends BlockFormat<FileRegion> {
     @Override
     public void setConf(Configuration conf) {
       this.conf = conf;
-      String tmpfile = conf.get(FILEPATH);
+      String tmpfile = conf.get(FILEPATH, file.toString());
       file = new Path(tmpfile);
+      delim = conf.get(DELIMITER, TextFileRegionFormat.DELIMITER);
     }
 
     @Override
@@ -132,8 +163,10 @@ public class TextFileRegionFormat extends BlockFormat<FileRegion> {
     @Override
     public void setConf(Configuration conf) {
       this.conf = conf;
-      String tmpfile = conf.get(FILEPATH);
+      String tmpfile = conf.get(FILEPATH, file.toString());
       file = new Path(tmpfile);
+      codec = conf.get(CODEC);
+      delim = conf.get(DELIMITER, TextFileRegionFormat.DELIMITER);
     }
 
     @Override
@@ -326,7 +359,7 @@ public class TextFileRegionFormat extends BlockFormat<FileRegion> {
       out.close();
     }
 
-    public static Options defaults() {
+    public static WriterOptions defaults() {
       return new WriterOptions();
     }
 
