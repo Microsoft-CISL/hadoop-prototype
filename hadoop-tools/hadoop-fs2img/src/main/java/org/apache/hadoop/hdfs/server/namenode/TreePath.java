@@ -45,8 +45,8 @@ public class TreePath {
     i.onAccept(this, id);
   }
 
-  public INode toINode(UGIResolver ugi, BlockResolver blk, BlockOutput out)
-      throws IOException {
+  public INode toINode(UGIResolver ugi, BlockResolver blk,
+      BlockFormat.Writer<FileRegion> out) throws IOException {
     if (stat.isFile()) {
       return toFile(ugi, blk, out);
     } else if (stat.isDirectory()) {
@@ -74,15 +74,15 @@ public class TreePath {
     return (int)(pId ^ (pId >>> 32));
   }
 
-  void writeBlock(long blockId, long offset, long length, BlockOutput out)
-      throws IOException {
+  void writeBlock(long blockId, long offset, long length,
+      BlockFormat.Writer<FileRegion> out) throws IOException {
     String id = "blk_" + blockId;
     FileStatus s = getFileStatus();
-    out.store(id, s.getPath(), offset, length);
+    out.store(new FileRegion(id, s.getPath(), offset, length));
   }
 
-  INode toFile(UGIResolver ugi, BlockResolver blk, BlockOutput out)
-      throws IOException {
+  INode toFile(UGIResolver ugi, BlockResolver blk,
+      BlockFormat.Writer<FileRegion> out) throws IOException {
     final FileStatus s = getFileStatus();
     INodeFile.Builder b = INodeFile.newBuilder()
         .setReplication(1) //stat.getReplication());

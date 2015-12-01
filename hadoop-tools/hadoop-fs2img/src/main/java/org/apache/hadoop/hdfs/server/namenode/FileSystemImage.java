@@ -1,24 +1,20 @@
 package org.apache.hadoop.hdfs.server.namenode;
 
-import java.util.ArrayList;
+import java.io.File;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
-import org.apache.commons.cli.OptionBuilder;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.cli.PosixParser;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hdfs.server.namenode.FSImageUtil;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
-import org.apache.hadoop.hdfs.server.namenode.TreeWalk.TreeIterator;
 
 public class FileSystemImage implements Tool {
 
@@ -32,6 +28,8 @@ public class FileSystemImage implements Tool {
   @Override
   public void setConf(Configuration conf) {
     this.conf = conf;
+    // require absolute URI to write anywhere but local
+    FileSystem.setDefaultUri(conf, new File(".").toURI().toString());
   }
 
   protected void printUsage() {
@@ -49,7 +47,7 @@ public class FileSystemImage implements Tool {
     options.addOption("b", "blockclass", true, "Block output class");
     options.addOption("i", "blockidclass", true, "Block resolver class");
     options.addOption("c", "cachedirs", true, "Max active dirents");
-    options.addOption("h", "help", true, "Print usage");
+    options.addOption("h", "help", false, "Print usage");
     return options;
   }
 
@@ -84,7 +82,7 @@ public class FileSystemImage implements Tool {
           break;
         case "b":
           opts.blocks(
-              Class.forName(o.getValue()).asSubclass(BlockOutput.class));
+              Class.forName(o.getValue()).asSubclass(BlockFormat.class));
           break;
         case "i":
           opts.blockIds(
@@ -98,25 +96,15 @@ public class FileSystemImage implements Tool {
       }
     }
  
-    try (ImageWriter w = new ImageWriter(opts)) {
+    if (argv.length < 1) {
+      printUsage();
+      return -1;
+    }
 
+    try (ImageWriter w = new ImageWriter(opts)) {
       for (TreePath e : new FSTreeWalk(new Path(argv[0]), getConf())) {
         w.accept(e); // add and continue
       }
-//      TreeWalk t = new FSTreeWalk(new Path(argv[0]), getConf());
-//      for (TreeIterator i = t.iterator(); i.hasNext();) {
-//        TreePath p = i.next();
-//        if (false) {
-//          TreeIterator j = i.fork();
-//        }
-//      }
-//      for (TreeIterator i = t.iterator(); i.hasNext();) {
-//        TreePath p = i.next();
-//        if (false) {
-//          TreeIterator j = i.fork();
-//          // i.next() != j.next();
-//        }
-//      }
     }
     return 0;
   }

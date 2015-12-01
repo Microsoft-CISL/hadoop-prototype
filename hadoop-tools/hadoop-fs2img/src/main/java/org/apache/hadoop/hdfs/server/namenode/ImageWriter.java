@@ -64,7 +64,7 @@ public class ImageWriter implements Closeable {
   final long startBlock;
   final long startInode;
   final UGIResolver ugis;
-  final BlockOutput blocks;
+  final BlockFormat.Writer<FileRegion> blocks;
   final BlockResolver blockIds;
   final Map<Long,DirEntry.Builder> dircache;
   final TrackedOutputStream<DigestOutputStream> raw;
@@ -81,6 +81,7 @@ public class ImageWriter implements Closeable {
     return new Options();
   }
 
+  @SuppressWarnings("unchecked")
   public ImageWriter(Options opts) throws IOException {
     final OutputStream out;
     if (null == opts.outStream) {
@@ -123,14 +124,19 @@ public class ImageWriter implements Closeable {
     dircache = Collections.synchronizedMap(new DirEntryCache(opts.maxdircache));
 
     ugis = ReflectionUtils.newInstance(opts.ugis, opts.getConf());
-    blocks = ReflectionUtils.newInstance(opts.blocks, opts.getConf());
+    // TODO: generalize to types beyond FileRegion
+    BlockFormat<FileRegion> fmt =
+        ReflectionUtils.newInstance(opts.blocks, opts.getConf());
+    blocks = fmt.getWriter(null);
     blockIds = ReflectionUtils.newInstance(opts.blockIds, opts.getConf());
 
     // create directory and inode sections as side-files
     dirsTmp = File.createTempFile("fsimg_dir", null);
+    dirsTmp.deleteOnExit();
     dirs = beginSection(new FileOutputStream(dirsTmp));
     try {
       inodesTmp = File.createTempFile("fsimg_inode", null);
+      inodesTmp.deleteOnExit();
       inodes = new FileOutputStream(inodesTmp);
     } catch (IOException e) {
       // appropriate to close raw?
@@ -257,7 +263,10 @@ public class ImageWriter implements Closeable {
     closed = true;
   }
 
-  // pulled from MD5Utils/internals. Awkward to reuse existing path
+  /**
+   * Write checksum for image file. Pulled from MD5Utils/internals. Awkward to
+   * reuse existing tools/utils.
+   */
   void writeMD5(String imagename) throws IOException {
     if (null == outdir) {
       //LOG.warn("Not writing MD5");
@@ -270,10 +279,6 @@ public class ImageWriter implements Closeable {
       String md5Line = digestString + " *" + imagename + "\n";
       out.write(md5Line.getBytes(Charsets.UTF_8));
     }
-  }
-
-  OutputStream beginSection() throws IOException {
-    return beginSection(raw);
   }
 
   OutputStream beginSection(OutputStream out) throws IOException {
@@ -306,7 +311,7 @@ public class ImageWriter implements Closeable {
       .setTransactionId(1);
     NameSystemSection s = b.build();
 
-    OutputStream sec = beginSection();
+    OutputStream sec = beginSection(raw);
     s.writeDelimitedTo(sec);
     endSection(sec, SectionName.NS_INFO);
   }
@@ -318,7 +323,7 @@ public class ImageWriter implements Closeable {
       .setLastInodeId(curInode.get());
     INodeSection s = b.build();
 
-    OutputStream sec = beginSection();
+    OutputStream sec = beginSection(raw);
     s.writeDelimitedTo(sec);
     // copy inodes
     try (FileInputStream in = new FileInputStream(inodesTmp)) {
@@ -343,7 +348,7 @@ public class ImageWriter implements Closeable {
       FilesUnderConstructionSection.newBuilder();
     FilesUnderConstructionSection s = b.build();
 
-    OutputStream sec = beginSection();
+    OutputStream sec = beginSection(raw);
     s.writeDelimitedTo(sec);
     endSection(sec, SectionName.FILES_UNDERCONSTRUCTION);
   }
@@ -352,7 +357,7 @@ public class ImageWriter implements Closeable {
     SnapshotDiffSection.Builder b = SnapshotDiffSection.newBuilder();
     SnapshotDiffSection s = b.build();
 
-    OutputStream sec = beginSection();
+    OutputStream sec = beginSection(raw);
     s.writeDelimitedTo(sec);
     endSection(sec, SectionName.SNAPSHOT_DIFF);
   }
@@ -363,7 +368,7 @@ public class ImageWriter implements Closeable {
       .setTokenSequenceNumber(0);
     SecretManagerSection s = b.build();
 
-    OutputStream sec = beginSection();
+    OutputStream sec = beginSection(raw);
     s.writeDelimitedTo(sec);
     endSection(sec, SectionName.SECRET_MANAGER);
   }
@@ -375,7 +380,7 @@ public class ImageWriter implements Closeable {
       .setNextDirectiveId(1);
     CacheManagerSection s = b.build();
 
-    OutputStream sec = beginSection();
+    OutputStream sec = beginSection(raw);
     s.writeDelimitedTo(sec);
     endSection(sec, SectionName.CACHE_MANAGER);
   }
@@ -386,7 +391,7 @@ public class ImageWriter implements Closeable {
     b.setNumEntry(u.size());
     StringTableSection s = b.build();
 
-    OutputStream sec = beginSection();
+    OutputStream sec = beginSection(raw);
     s.writeDelimitedTo(sec);
     for (Map.Entry<Integer,String> e : u.entrySet()) {
       StringTableSection.Entry.Builder x = StringTableSection.Entry.newBuilder()
@@ -472,7 +477,8 @@ public class ImageWriter implements Closeable {
     long startBlock;
     long startInode;
     Class<? extends UGIResolver> ugis;
-    Class<? extends BlockOutput> blocks;
+    @SuppressWarnings("rawtypes")
+    Class<? extends BlockFormat> blocks;
     Class<? extends BlockResolver> blockIds;
     FSImageCompression compress = FSImageCompression.createNoopCompression();
 
@@ -488,9 +494,10 @@ public class ImageWriter implements Closeable {
       startBlock = conf.getLong(START_BLOCK, (1L << 30) + 1);
       startInode = conf.getLong(START_INODE, (1L << 14) + 1);
       maxdircache = conf.getInt(CACHE_ENTRY, 100);
-      ugis = conf.getClass(UGI_CLASS, SingleUGIResolver.class, UGIResolver.class);
+      ugis = conf.getClass(UGI_CLASS,
+          SingleUGIResolver.class, UGIResolver.class);
       blocks = conf.getClass(BLOCK_CLASS,
-          NullBlockOutput.class, BlockOutput.class);
+          NullBlockFormat.class, BlockFormat.class);
       blockIds = conf.getClass(BLKID_CLASS,
           FixedBlockResolver.class, BlockResolver.class);
     }
@@ -530,7 +537,8 @@ public class ImageWriter implements Closeable {
       return this;
     }
 
-    public Options blocks(Class<? extends BlockOutput> blocks) {
+    @SuppressWarnings("rawtypes")
+    public Options blocks(Class<? extends BlockFormat> blocks) {
       this.blocks = blocks;
       return this;
     }
