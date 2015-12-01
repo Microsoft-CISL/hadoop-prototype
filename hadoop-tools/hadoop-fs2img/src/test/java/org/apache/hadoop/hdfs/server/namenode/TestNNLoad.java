@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.util.Random;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.hdfs.HdfsConfiguration;
@@ -23,30 +25,32 @@ public class TestNNLoad {
 
   @Rule public TestName name = new TestName();
 
-  Random r = new Random();
+  final Random r = new Random();
+  final File fBASE = new File(MiniDFSCluster.getBaseDirectory());
+  final Path BASE = new Path(fBASE.toURI().toString());
 
   @Before
-  public void setSeed() {
+  public void setSeed() throws Exception {
+    if (fBASE.exists() && !FileUtil.fullyDelete(fBASE)) {
+      throw new IOException("Could not fully delete " + fBASE);
+    }
     long seed = r.nextLong();
     r.setSeed(seed);
     System.out.println(name.getMethodName() + " seed: " + seed);
   }
 
-  @Test // (timeout = 30000)
+  @Test(timeout = 20000)
   public void testLoadImage() throws Exception {
-    
-    final File fBASE = new File(MiniDFSCluster.getBaseDirectory());
-    final Path BASE = new Path(fBASE.toURI().toString());
-    if (fBASE.exists() && !FileUtil.fullyDelete(fBASE)) {
-      throw new IOException("Could not fully delete " + fBASE);
-    }
-    final Path NAMEPATH = new Path(BASE, "hdfs/name");
-    final Path BLOCKFILE = new Path(BASE, "blocks.csv");
-
+    final String USER = "dingo";
+    final String GROUP = "yak";
     Configuration conf = new HdfsConfiguration();
-    //conf.setBoolean(NNTOP_ENABLED_KEY, false);
+    conf.set(SingleUGIResolver.USER, USER);
+    conf.set(SingleUGIResolver.GROUP, GROUP);
+
+    final Path BLOCKFILE = new Path(BASE, "blocks.csv");
     conf.set(TextFileRegionFormat.WriterOptions.FILEPATH, BLOCKFILE.toString());
 
+    final Path NAMEPATH = new Path(BASE, "hdfs/name");
     ImageWriter.Options opts = ImageWriter.defaults();
     opts.setConf(conf);
     opts.output(NAMEPATH.toString())
@@ -61,12 +65,38 @@ public class TestNNLoad {
       }
     }
 
-    //conf.set(DFS_NAMENODE_NAME_DIR_KEY, NAMEPATH.toString());
-    //MiniDFSCluster cluster = new MiniDFSCluster.Builder(conf)
-    //  .format(false)
-    //  .manageNameDfsDirs(false)
-    //  .build();
-    //cluster.waitNameNodeUp(0);
+    conf.set(DFS_NAMENODE_NAME_DIR_KEY, NAMEPATH.toString());
+    MiniDFSCluster cluster = null;
+    try {
+      cluster = new MiniDFSCluster.Builder(conf)
+        .format(false)
+        .manageNameDfsDirs(false)
+        .numDataNodes(0)
+        .build();
+      cluster.waitActive();
+      FileSystem fs = cluster.getFileSystem();
+      for (TreePath e : new RandomTreeWalk(seed)) {
+        FileStatus rs = e.getFileStatus();
+        Path hp = new Path(rs.getPath().toUri().getPath());
+        assertTrue(fs.exists(hp));
+        FileStatus hs = fs.getFileStatus(hp);
+        assertEquals(rs.getPath().toUri().getPath(),
+                     hs.getPath().toUri().getPath());
+        assertEquals(rs.getPermission(), hs.getPermission());
+        // TODO: loaded later? Not reflected, yet.
+        //assertEquals(rs.getReplication(), hs.getReplication());
+        //assertEquals(rs.getBlockSize(), hs.getBlockSize());
+        assertEquals(rs.getLen(), hs.getLen());
+        assertEquals("dingo", hs.getOwner());
+        assertEquals("yak", hs.getGroup());
+        assertEquals(rs.getAccessTime(), hs.getAccessTime());
+        assertEquals(rs.getModificationTime(), hs.getModificationTime());
+      }
+    } finally {
+      if (cluster != null) {
+        cluster.shutdown(true, true);
+      }
+    }
   }
 
 }

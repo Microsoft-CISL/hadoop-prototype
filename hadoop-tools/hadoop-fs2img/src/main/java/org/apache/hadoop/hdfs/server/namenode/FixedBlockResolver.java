@@ -13,8 +13,8 @@ public class FixedBlockResolver extends BlockResolver implements Configurable {
   public static final String BLOCKSIZE   = "hdfs.image.writer.fixed.blocksize";
   public static final String START_BLOCK = "hdfs.image.writer.start.block";
 
-  long blocksize;
   Configuration conf;
+  long blocksize = 256 * (1L << 20);
   final AtomicLong blockIds = new AtomicLong(0);
 
   @Override

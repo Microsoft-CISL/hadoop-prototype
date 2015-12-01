@@ -250,9 +250,10 @@ public class ImageWriter implements Closeable {
       writeStringTableSection();
 
       // write empty stub sections
-      writeFilesUCSection();
-      writeSecretManagerSection();
-      writeCacheManagerSection();
+      // XXX Not required, as it turns out. Leaving stubs for future use.
+      //writeFilesUCSection();
+      //writeSecretManagerSection();
+      //writeCacheManagerSection();
 
       // write summary directly to raw
       FileSummary s = summary.build();
@@ -264,7 +265,7 @@ public class ImageWriter implements Closeable {
     } finally {
       raw.close();
     }
-    writeMD5("fsimage_0000000000000000000.md5");
+    writeMD5("fsimage_0000000000000000000");
     closed = true;
   }
 
@@ -279,7 +280,7 @@ public class ImageWriter implements Closeable {
     }
     MD5Hash md5 = new MD5Hash(digest.digest());
     String digestString = StringUtils.byteToHexString(md5.getDigest());
-    Path chk = new Path(outdir, imagename);
+    Path chk = new Path(outdir, imagename + ".md5");
     try (OutputStream out = outfs.create(chk)) {
       String md5Line = digestString + " *" + imagename + "\n";
       out.write(md5Line.getBytes(Charsets.UTF_8));
