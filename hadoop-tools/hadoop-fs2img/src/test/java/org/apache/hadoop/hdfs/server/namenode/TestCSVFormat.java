@@ -25,7 +25,7 @@ public class TestCSVFormat {
       final Class<? extends CompressionCodec> vc) throws IOException {
     CSVBlockFormat mFmt = new CSVBlockFormat() {
       @Override
-      CSVWriter createWriter(Path file, CompressionCodec codec,
+      CSVWriter createWriter(Path file, CompressionCodec codec, String delim,
           Configuration conf) throws IOException {
         assertEquals(vp, file);
         if (null == vc) {
@@ -65,12 +65,13 @@ public class TestCSVFormat {
     FileRegion r1 = new FileRegion("blk_4344", OUTFILE, 0, 1024);
     FileRegion r2 = new FileRegion("blk_4345", OUTFILE, 1024, 1024);
     FileRegion r3 = new FileRegion("blk_4346", OUTFILE, 2048, 512);
-    try (CSVWriter csv = new CSVWriter(new OutputStreamWriter(out))) {
+    try (CSVWriter csv = new CSVWriter(new OutputStreamWriter(out), ",")) {
       csv.store(r1);
       csv.store(r2);
       csv.store(r3);
     }
-    try (CSVReader csv = new CSVReader(null, null, null) {
+    Iterator<FileRegion> i3;
+    try (CSVReader csv = new CSVReader(null, null, null, ",") {
       @Override
       InputStream createStream() {
         DataInputBuffer in = new DataInputBuffer();
@@ -88,7 +89,54 @@ public class TestCSVFormat {
 
       assertFalse(i1.hasNext());
       assertFalse(i2.hasNext());
+      i3 = csv.iterator();
     }
+    try {
+      i3.next();
+    } catch (IllegalStateException e) {
+      return;
+    }
+    fail("Invalid iterator");
+  }
+
+  @Test
+  public void testCSVReadWriteTsv() throws Exception {
+    final DataOutputBuffer out = new DataOutputBuffer();
+    FileRegion r1 = new FileRegion("blk_4344", OUTFILE, 0, 1024);
+    FileRegion r2 = new FileRegion("blk_4345", OUTFILE, 1024, 1024);
+    FileRegion r3 = new FileRegion("blk_4346", OUTFILE, 2048, 512);
+    try (CSVWriter csv = new CSVWriter(new OutputStreamWriter(out), "\t")) {
+      csv.store(r1);
+      csv.store(r2);
+      csv.store(r3);
+    }
+    Iterator<FileRegion> i3;
+    try (CSVReader csv = new CSVReader(null, null, null, "\t") {
+      @Override
+      InputStream createStream() {
+        DataInputBuffer in = new DataInputBuffer();
+        in.reset(out.getData(), 0, out.getLength());
+        return in;
+      }}) {
+      Iterator<FileRegion> i1 = csv.iterator();
+      assertEquals(r1, i1.next());
+      Iterator<FileRegion> i2 = csv.iterator();
+      assertEquals(r1, i2.next());
+      assertEquals(r2, i2.next());
+      assertEquals(r3, i2.next());
+      assertEquals(r2, i1.next());
+      assertEquals(r3, i1.next());
+
+      assertFalse(i1.hasNext());
+      assertFalse(i2.hasNext());
+      i3 = csv.iterator();
+    }
+    try {
+      i3.next();
+    } catch (IllegalStateException e) {
+      return;
+    }
+    fail("Invalid iterator");
   }
 
 }

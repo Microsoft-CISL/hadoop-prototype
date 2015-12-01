@@ -25,7 +25,9 @@ import org.apache.hadoop.io.compress.CompressionCodecFactory;
 
 import com.google.common.annotations.VisibleForTesting;
 
-// todo: rename to CSVFileRegionFormat
+// TODO: rename to CSVFileRegionFormat
+// TODO: refactor to abstract file format
+// TODO: move delimiter to common
 public class CSVBlockFormat extends BlockFormat<FileRegion> {
 
   public static final String DEFNAME   = "blocks.csv";
@@ -41,15 +43,16 @@ public class CSVBlockFormat extends BlockFormat<FileRegion> {
     Configuration conf = null == o.getConf()
       ? new Configuration()
       : o.getConf();
-    return createReader(o.file, conf);
+    return createReader(o.file, o.delim, conf);
   }
 
   @VisibleForTesting
-  CSVReader createReader(Path file, Configuration conf) throws IOException {
+  CSVReader createReader(Path file, String delim, Configuration conf)
+      throws IOException {
     FileSystem fs = file.getFileSystem(conf);
     CompressionCodecFactory factory = new CompressionCodecFactory(conf);
     CompressionCodec codec = factory.getCodec(file);
-    return new CSVReader(fs, file, codec);
+    return new CSVReader(fs, file, codec, delim);
   }
 
   @Override
@@ -66,26 +69,28 @@ public class CSVBlockFormat extends BlockFormat<FileRegion> {
       CompressionCodec codec = factory.getCodecByName(o.codec);
       String name = o.file.getName() + codec.getDefaultExtension();
       o.filename(new Path(o.file.getParent(), name));
-      return createWriter(o.file, codec, conf);
+      return createWriter(o.file, codec, o.delim, conf);
     }
-    return createWriter(o.file, null, conf);
+    return createWriter(o.file, null, o.delim, conf);
   }
 
   @VisibleForTesting
-  CSVWriter createWriter(Path file, CompressionCodec codec, Configuration conf)
-      throws IOException {
+  CSVWriter createWriter(Path file, CompressionCodec codec, String delim,
+      Configuration conf) throws IOException {
     FileSystem fs = file.getFileSystem(conf);
     OutputStream tmp = fs.create(file);
     java.io.Writer out = new BufferedWriter(new OutputStreamWriter(
           (null == codec) ? tmp : codec.createOutputStream(tmp), "UTF-8"));
-    return new CSVWriter(out);
+    return new CSVWriter(out, delim);
   }
 
   public static class ReaderOptions implements CSVReader.Options, Configurable {
 
     public static final String FILEPATH = "hdfs.image.block.csv.read.path";
+    public static final String DELIMITER = "hdfs.image.block.csv.delimiter";
 
     private Configuration conf;
+    protected String delim = DELIMITER;
     protected Path file = new Path(new File(DEFNAME).toURI().toString());
 
     @Override
@@ -106,16 +111,24 @@ public class CSVBlockFormat extends BlockFormat<FileRegion> {
       return this;
     }
 
+    @Override
+    public ReaderOptions delimiter(String delim) {
+      this.delim = delim;
+      return this;
+    }
+
   }
 
   public static class WriterOptions implements CSVWriter.Options, Configurable {
 
-    public static final String CODEC    = "hdfs.image.block.csv.read.codec";
-    public static final String FILEPATH = "hdfs.image.block.csv.write.path";
+    public static final String CODEC     = "hdfs.image.block.csv.read.codec";
+    public static final String FILEPATH  = "hdfs.image.block.csv.write.path";
+    public static final String DELIMITER = "hdfs.image.block.csv.delimiter";
 
     private Configuration conf;
     protected String codec = null;
     protected Path file = new Path(new File(DEFNAME).toURI().toString());
+    protected String delim = DELIMITER;
 
     @Override
     public void setConf(Configuration conf) {
@@ -141,12 +154,19 @@ public class CSVBlockFormat extends BlockFormat<FileRegion> {
       return this;
     }
 
+    @Override
+    public WriterOptions delimiter(String delim) {
+      this.delim = delim;
+      return this;
+    }
+
   }
 
   static class CSVReader extends Reader<FileRegion> {
 
     public interface Options extends Reader.Options {
       Options filename(Path file);
+      Options delimiter(String delim);
     }
 
     static ReaderOptions defaults() {
@@ -154,19 +174,23 @@ public class CSVBlockFormat extends BlockFormat<FileRegion> {
     }
 
     private final Path file;
+    private final String delim;
     private final FileSystem fs;
     private final CompressionCodec codec;
     private final Map<FRIterator,BufferedReader> iterators;
 
-    protected CSVReader(FileSystem fs, Path file, CompressionCodec codec) {
-      this(fs, file, codec, new IdentityHashMap<FRIterator,BufferedReader>());
+    protected CSVReader(FileSystem fs, Path file, CompressionCodec codec,
+        String delim) {
+      this(fs, file, codec, delim,
+          new IdentityHashMap<FRIterator,BufferedReader>());
     }
 
-    CSVReader(FileSystem fs, Path file, CompressionCodec codec,
+    CSVReader(FileSystem fs, Path file, CompressionCodec codec, String delim,
         Map<FRIterator,BufferedReader> iterators) {
       this.fs = fs;
       this.file = file;
       this.codec = codec;
+      this.delim = delim;
       this.iterators = Collections.synchronizedMap(iterators);
     }
 
@@ -225,7 +249,7 @@ public class CSVBlockFormat extends BlockFormat<FileRegion> {
         iterators.remove(i);
         return null;
       }
-      String[] f = line.split(",");
+      String[] f = line.split(delim);
       if (f.length != 4) {
         throw new IOException("Invalid line: " + line);
       }
@@ -282,17 +306,19 @@ public class CSVBlockFormat extends BlockFormat<FileRegion> {
 
   static class CSVWriter extends Writer<FileRegion> {
 
+    final String delim;
     final java.io.Writer out;
 
-    protected CSVWriter(java.io.Writer out) {
+    protected CSVWriter(java.io.Writer out, String delim) {
       this.out = out;
+      this.delim = delim;
     }
 
     @Override
     public void store(FileRegion token) throws IOException {
-      out.append(token.getBlockId()).append(",");
-      out.append(token.path.toString()).append(",");
-      out.append(Long.toString(token.offset)).append(",");
+      out.append(token.getBlockId()).append(delim);
+      out.append(token.path.toString()).append(delim);
+      out.append(Long.toString(token.offset)).append(delim);
       out.append(Long.toString(token.length)).append("\n");
     }
 
@@ -308,6 +334,7 @@ public class CSVBlockFormat extends BlockFormat<FileRegion> {
     public interface Options extends Writer.Options {
       Options codec(String codec);
       Options filename(Path file);
+      Options delimiter(String delim);
     }
 
   }
