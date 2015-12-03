@@ -87,8 +87,8 @@ public class TestNNLoad {
         //assertEquals(rs.getReplication(), hs.getReplication());
         //assertEquals(rs.getBlockSize(), hs.getBlockSize());
         assertEquals(rs.getLen(), hs.getLen());
-        assertEquals("dingo", hs.getOwner());
-        assertEquals("yak", hs.getGroup());
+        assertEquals(USER, hs.getOwner());
+        assertEquals(GROUP, hs.getGroup());
         assertEquals(rs.getAccessTime(), hs.getAccessTime());
         assertEquals(rs.getModificationTime(), hs.getModificationTime());
       }
