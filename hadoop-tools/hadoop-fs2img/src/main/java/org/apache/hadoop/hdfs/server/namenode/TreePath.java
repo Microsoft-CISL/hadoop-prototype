@@ -5,6 +5,7 @@ import java.io.IOException;
 import com.google.protobuf.ByteString;
 
 import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.hdfs.protocol.HdfsConstants;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.BlockProto;
 import org.apache.hadoop.hdfs.server.namenode.FsImageProto.INodeSection.INode;
 import org.apache.hadoop.hdfs.server.namenode.FsImageProto.INodeSection.INodeDirectory;
@@ -89,7 +90,9 @@ public class TreePath {
         .setModificationTime(s.getModificationTime())
         .setAccessTime(s.getAccessTime())
         .setPreferredBlockSize(blk.preferredBlockSize(s))
-        .setPermission(ugi.resolve(s));
+        .setPermission(ugi.resolve(s))
+        .setStoragePolicyID(HdfsConstants.PROVIDED_STORAGE_POLICY_ID);
+        // storage policy should be configurable per path; use BlockResolver
     long off = 0L;
     for (BlockProto block : blk.resolve(s)) {
       b.addBlocks(block);

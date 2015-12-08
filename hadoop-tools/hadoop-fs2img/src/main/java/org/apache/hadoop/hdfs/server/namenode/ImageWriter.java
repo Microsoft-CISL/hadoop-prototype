@@ -26,7 +26,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocalFileSystem;
 import org.apache.hadoop.fs.Path;
-//import org.apache.hadoop.hdfs.server.namenode.FSImageFormatProtobuf.SaverContext;
 import org.apache.hadoop.hdfs.server.namenode.FSImageFormatProtobuf.SectionName;
 import org.apache.hadoop.hdfs.server.namenode.FsImageProto.CacheManagerSection;
 import org.apache.hadoop.hdfs.server.namenode.FsImageProto.FileSummary;
@@ -467,6 +466,7 @@ public class ImageWriter implements Closeable {
 
   public static class Options implements Configurable {
     public static final String OUTPUT_DIR  = "hdfs.image.writer.output.file";
+    // TODO: move this to BlockResolver
     public static final String START_BLOCK = "hdfs.image.writer.start.block";
     public static final String START_INODE = "hdfs.image.writer.start.inode";
     public static final String CACHE_ENTRY = "hdfs.image.writer.cache.entries";
