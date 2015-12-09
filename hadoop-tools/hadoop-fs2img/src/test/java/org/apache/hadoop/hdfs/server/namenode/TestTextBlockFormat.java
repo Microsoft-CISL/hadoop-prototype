@@ -62,9 +62,9 @@ public class TestTextBlockFormat {
   @Test
   public void testCSVReadWrite() throws Exception {
     final DataOutputBuffer out = new DataOutputBuffer();
-    FileRegion r1 = new FileRegion("blk_4344", OUTFILE, 0, 1024);
-    FileRegion r2 = new FileRegion("blk_4345", OUTFILE, 1024, 1024);
-    FileRegion r3 = new FileRegion("blk_4346", OUTFILE, 2048, 512);
+    FileRegion r1 = new FileRegion(4344L, OUTFILE, 0, 1024);
+    FileRegion r2 = new FileRegion(4345L, OUTFILE, 1024, 1024);
+    FileRegion r3 = new FileRegion(4346L, OUTFILE, 2048, 512);
     try (TextWriter csv = new TextWriter(new OutputStreamWriter(out), ",")) {
       csv.store(r1);
       csv.store(r2);
@@ -102,9 +102,9 @@ public class TestTextBlockFormat {
   @Test
   public void testCSVReadWriteTsv() throws Exception {
     final DataOutputBuffer out = new DataOutputBuffer();
-    FileRegion r1 = new FileRegion("blk_4344", OUTFILE, 0, 1024);
-    FileRegion r2 = new FileRegion("blk_4345", OUTFILE, 1024, 1024);
-    FileRegion r3 = new FileRegion("blk_4346", OUTFILE, 2048, 512);
+    FileRegion r1 = new FileRegion(4344L, OUTFILE, 0, 1024);
+    FileRegion r2 = new FileRegion(4345L, OUTFILE, 1024, 1024);
+    FileRegion r3 = new FileRegion(4346L, OUTFILE, 2048, 512);
     try (TextWriter csv = new TextWriter(new OutputStreamWriter(out), "\t")) {
       csv.store(r1);
       csv.store(r2);

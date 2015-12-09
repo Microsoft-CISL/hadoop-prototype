@@ -1,15 +1,16 @@
 package org.apache.hadoop.hdfs.server.namenode;
 
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hdfs.protocol.Block;
 
 public class FileRegion implements BlockAlias {
 
   final Path path;
   final long offset;
   final long length;
-  final String blockId;
+  final long blockId;
 
-  public FileRegion(String blockId, Path path, long offset, long length) {
+  public FileRegion(long blockId, Path path, long offset, long length) {
     this.path = path;
     this.offset = offset;
     this.length = length;
@@ -17,8 +18,9 @@ public class FileRegion implements BlockAlias {
   }
 
   @Override
-  public String getBlockId() {
-    return blockId;
+  public Block getBlock() {
+    // TODO: uses HdfsConstants.GRANDFATHER_GENERATION_STAMP
+    return new Block(blockId);
   }
 
   @Override
@@ -27,7 +29,7 @@ public class FileRegion implements BlockAlias {
       return false;
     }
     FileRegion o = (FileRegion) other;
-    return blockId.equals(o.blockId)
+    return blockId == o.blockId
       && offset == o.offset
       && length == o.length
       && path.equals(o.path);
@@ -35,7 +37,7 @@ public class FileRegion implements BlockAlias {
 
   @Override
   public int hashCode() {
-    return blockId.hashCode();
+    return (int)(blockId & Integer.MIN_VALUE);
   }
 
 }

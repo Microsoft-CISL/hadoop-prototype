@@ -77,9 +77,8 @@ public class TreePath {
 
   void writeBlock(long blockId, long offset, long length,
       BlockFormat.Writer<FileRegion> out) throws IOException {
-    String id = "blk_" + blockId;
     FileStatus s = getFileStatus();
-    out.store(new FileRegion(id, s.getPath(), offset, length));
+    out.store(new FileRegion(blockId, s.getPath(), offset, length));
   }
 
   INode toFile(UGIResolver ugi, BlockResolver blk,

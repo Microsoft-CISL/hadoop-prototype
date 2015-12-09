@@ -189,6 +189,9 @@ public class BlockManager implements BlockStatsMXBean {
   /** Store blocks -> datanodedescriptor(s) map of corrupt replicas */
   final CorruptReplicasMap corruptReplicas = new CorruptReplicasMap();
 
+  /** Storages accessible from multiple DNs. */
+  final ProvidedStorageMap provided;
+
   /** Blocks to be invalidated. */
   private final InvalidateBlocks invalidateBlocks;
   
@@ -306,6 +309,9 @@ public class BlockManager implements BlockStatsMXBean {
     pendingReplications = new PendingReplicationBlocks(conf.getInt(
       DFSConfigKeys.DFS_NAMENODE_REPLICATION_PENDING_TIMEOUT_SEC_KEY,
       DFSConfigKeys.DFS_NAMENODE_REPLICATION_PENDING_TIMEOUT_SEC_DEFAULT) * 1000L);
+
+    // !#! schedule load of provided replicas to storage
+    provided = new ProvidedStorageMap(conf);
 
     blockTokenSecretManager = createBlockTokenSecretManager(conf);
 
@@ -1823,7 +1829,10 @@ public class BlockManager implements BlockStatsMXBean {
 
       // To minimize startup time, we discard any second (or later) block reports
       // that we receive while still in startup phase.
-      DatanodeStorageInfo storageInfo = node.getStorageInfo(storage.getStorageID());
+      // !#! XXX possible to return known, provided storage from sep map
+      // !#! Register DN with provided storage, not with storage owned by DN
+      // !#! DN should still have a ref to the DNStorageInfo
+      DatanodeStorageInfo storageInfo = provided.getStorage(node, storage);
 
       if (storageInfo == null) {
         // We handle this for backwards compatibility.

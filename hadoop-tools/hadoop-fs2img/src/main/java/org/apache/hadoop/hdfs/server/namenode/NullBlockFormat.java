@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
+import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.server.namenode.BlockFormat.Reader.Options;
 
 public class NullBlockFormat extends BlockFormat<FileRegion> {
@@ -35,7 +36,7 @@ public class NullBlockFormat extends BlockFormat<FileRegion> {
       }
 
       @Override
-      public FileRegion resolve(String ident) throws IOException {
+      public FileRegion resolve(Block ident) throws IOException {
         throw new UnsupportedOperationException();
       }
     };

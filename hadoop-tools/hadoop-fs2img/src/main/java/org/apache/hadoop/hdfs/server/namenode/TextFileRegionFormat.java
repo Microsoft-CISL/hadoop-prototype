@@ -20,6 +20,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.LocalFileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.io.MultipleIOException;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.CompressionCodecFactory;
@@ -226,13 +227,14 @@ public class TextFileRegionFormat
       this.iterators = Collections.synchronizedMap(iterators);
     }
 
-    public FileRegion resolve(String ident) throws IOException {
+    @Override
+    public FileRegion resolve(Block ident) throws IOException {
       // consider layering index w/ composable format
       Iterator<FileRegion> i = iterator();
       try {
         while (i.hasNext()) {
           FileRegion f = i.next();
-          if (f.getBlockId().equals(ident)) {
+          if (f.getBlock().equals(ident)) {
             return f;
           }
         }
@@ -285,7 +287,7 @@ public class TextFileRegionFormat
       if (f.length != 4) {
         throw new IOException("Invalid line: " + line);
       }
-      return new FileRegion(f[0], new Path(f[1]),
+      return new FileRegion(Long.valueOf(f[0]), new Path(f[1]),
           Long.valueOf(f[2]), Long.valueOf(f[3]));
     }
 
@@ -348,7 +350,7 @@ public class TextFileRegionFormat
 
     @Override
     public void store(FileRegion token) throws IOException {
-      out.append(token.getBlockId()).append(delim);
+      out.append(String.valueOf(token.getBlock().getBlockId())).append(delim);
       out.append(token.path.toString()).append(delim);
       out.append(Long.toString(token.offset)).append(delim);
       out.append(Long.toString(token.length)).append("\n");

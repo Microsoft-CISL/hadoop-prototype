@@ -3,13 +3,15 @@ package org.apache.hadoop.hdfs.server.namenode;
 import java.io.Closeable;
 import java.io.IOException;
 
+import org.apache.hadoop.hdfs.protocol.Block;
+
 public abstract class BlockFormat<T extends BlockAlias>  {
 
   public static abstract class Reader<U extends BlockAlias>
       implements Iterable<U>, Closeable {
     public interface Options { }
 
-    public abstract U resolve(String ident) throws IOException;
+    public abstract U resolve(Block ident) throws IOException;
 
   }
 
