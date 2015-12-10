@@ -18,11 +18,14 @@
 package org.apache.hadoop.hdfs.server.common;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.RandomAccessFile;
 import java.lang.management.ManagementFactory;
+import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.channels.OverlappingFileLockException;
 import java.util.ArrayList;
@@ -38,6 +41,7 @@ import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.NodeType;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.StartupOption;
+import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.nativeio.NativeIO;
 import org.apache.hadoop.io.nativeio.NativeIOException;
 import org.apache.hadoop.util.ToolRunner;
@@ -1022,6 +1026,57 @@ public abstract class Storage extends StorageInfo {
     }
   }
 
+  public static void copyFileBuffered(InputStream ins, long sourceLength, 
+      File destFile, boolean preserveFileDate) throws IOException {
+    
+    //TODO add any checks required similar to nativeCopyFileUnbuffered
+    File parentFile = destFile.getParentFile();
+    if (parentFile != null) {
+      if (!parentFile.mkdirs() && !parentFile.isDirectory()) {
+        throw new IOException("Destination '" + parentFile
+            + "' directory cannot be created");
+      }
+    }
+    if (destFile.exists()) {
+      if (FileUtil.canWrite(destFile) == false) {
+        throw new IOException("Destination '" + destFile
+            + "' exists but is read-only");
+      } else {
+        if (destFile.delete() == false) {
+          throw new IOException("Destination '" + destFile
+              + "' exists but cannot be deleted");
+        }
+      }
+    }
+
+    FileInputStream fis = null;
+    FileOutputStream fout = null;
+    try {     
+      int BUF_SIZE = 512;
+      byte[] buf = new byte[BUF_SIZE];
+
+      fout = new FileOutputStream(destFile);      
+      long remainingBytes = sourceLength;
+      while(remainingBytes > 0) {
+        int bytesToRead = (int) (remainingBytes < BUF_SIZE ? remainingBytes : BUF_SIZE);
+        int bytesRead = ins.read(buf, 0, bytesToRead);
+        remainingBytes -= bytesRead;
+        fout.write(buf, 0, bytesRead);
+      }
+    }
+    catch(IOException e) {
+      throw new IOException("Failed to copy " 
+          + " to " + destFile.getCanonicalPath()
+          + " due to failure in NativeIO#copyFileUnbuffered(). "
+          + e.toString());
+    }
+    finally {
+      IOUtils.cleanup(LOG, fout);
+      IOUtils.cleanup(LOG, fis);
+    }
+  }
+
+  
   /**
    * Copies a file (usually large) to a new location using native unbuffered IO.
    * <p>

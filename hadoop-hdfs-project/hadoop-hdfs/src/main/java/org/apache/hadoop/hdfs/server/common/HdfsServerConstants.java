@@ -290,7 +290,9 @@ public interface HdfsServerConstants {
     /** Replica is under recovery. */
     RUR(3),
     /** Temporary replica: created for replication and relocation only. */
-    TEMPORARY(4);
+    TEMPORARY(4),
+    /** Provided replica*/
+    PROVIDED (5);
 
     private static final ReplicaState[] cachedValues = ReplicaState.values();
 

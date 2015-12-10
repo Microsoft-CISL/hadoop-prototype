@@ -233,33 +233,35 @@ public class TestDataTransferProtocol {
       dnAddr = NetUtils.createSocketAddr(datanode.getXferAddr());
       FileSystem fileSys = cluster.getFileSystem();
       
-      int fileLen = 10; //Math.min(conf.getInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, 4096), 4096);
-      
       /* Test OP_READ_BLOCK */
       long blockId = 1;
       
-      String bpid = DFSConfigKeys.DFS_NAMENODE_PROVIDED_BLKPID;
-      ExtendedBlock blk = new ExtendedBlock(bpid, blockId); 
+      ExtendedBlock blk = new ExtendedBlock(DFSConfigKeys.DFS_NAMENODE_PROVIDED_BLKPID, blockId); 
       
 //      FileSystem fs = FileSystem.newInstance(URI.create("/home/virajith/blockid_map.txt"), conf);
 //      
 //      FSDataInputStream ins = fs.open(new Path(URI.create("/home/virajith/blockid_map.txt")));
 //      //expect to receive 
 //      ins.read(recvBuf, 0, 10);
-
+      int fileLen = 10;
       sendBuf.reset();
       recvBuf.reset();
       sender.readBlock(blk, BlockTokenSecretManager.DUMMY_TOKEN, "cl",
           0L, fileLen, true, CachingStrategy.newDefaultStrategy());
       sendRecvData("Data received", false); 
       
+      try {
+        Thread.sleep(1000);
+      } catch (InterruptedException e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+      }
+      
       sendBuf.reset();
       recvBuf.reset();
       sender.readBlock(blk, BlockTokenSecretManager.DUMMY_TOKEN, "cl",
           0L, fileLen, true, CachingStrategy.newDefaultStrategy());
       sendRecvData("Data received", false); 
-
-
     } finally {
       cluster.shutdown();
     }

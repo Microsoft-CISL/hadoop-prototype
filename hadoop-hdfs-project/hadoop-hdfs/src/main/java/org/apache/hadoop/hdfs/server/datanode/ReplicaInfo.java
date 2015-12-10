@@ -18,6 +18,14 @@
 package org.apache.hadoop.hdfs.server.datanode;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.RandomAccessFile;
+import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -25,7 +33,9 @@ import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.FsVolumeSpi;
+import org.apache.hadoop.hdfs.server.datanode.fsdataset.LengthInputStream;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.FsDatasetUtil;
+import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.util.LightWeightResizableGSet;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -117,6 +127,76 @@ abstract public class ReplicaInfo extends Block
         DatanodeUtil.getMetaName(getBlockName(), getGenerationStamp())) : null;
   }
   
+  public URI getBlockURI() {
+    return getBlockFile().toURI();
+  }
+  
+  public String getDatastoreName() {
+    return getBlockFile().getName();
+  }
+
+  
+  public InputStream getDataInputStream(long seekOffset) throws IOException {
+    File blockFile = getBlockFile();
+    try {
+      //TODO this code is copied from FsDatasetImpl.openseek(); refactor/unify with that code
+      RandomAccessFile raf = null;
+      try {
+        raf = new RandomAccessFile(blockFile, "r");
+        if (seekOffset > 0) {
+          raf.seek(seekOffset);
+        }
+        return new FileInputStream(raf.getFD());
+      } catch(IOException ioe) {
+        IOUtils.cleanup(null, raf);
+        throw ioe;
+      }
+    } catch (FileNotFoundException fnfe) {
+      throw new IOException("Replica " + this + " is not valid. " +
+          "Expected block file at " + blockFile + " does not exist.");
+    }
+  }
+  
+  public OutputStream getDataOutputStream(boolean append) throws IOException {
+    return new FileOutputStream(getBlockFile(), append);
+  }
+  
+  public boolean dataSourceExists() {
+    return getBlockFile().exists();
+  }
+  
+  public boolean deleteDataSource() {
+    return getBlockFile().delete();
+  }
+  
+  public long getDataSourceLength() {
+    return getBlockFile().length();
+  }
+  
+  public URI getMetadataURI() {
+    return getMetaFile().toURI();
+  }
+    
+  public LengthInputStream getMetadataInputStream() throws IOException {
+    File meta = getMetaFile();
+    return new LengthInputStream(new FileInputStream(meta), meta.length());
+  }
+  
+  public OutputStream getMetadataOutputStream(boolean append) throws IOException {
+    return new FileOutputStream(getMetaFile(), append);
+  }
+  
+  public boolean metadataSourceExists() {
+    return getMetaFile().exists();
+  }
+  
+  public boolean deleteMetadataSource() {
+    return getMetaFile().delete();
+  }
+  
+  public long getMetadataSourceLength() {
+    return getMetaFile().length();
+  }
   /**
    * Get the volume where this replica is located on disk
    * @return the volume where this replica is located on disk

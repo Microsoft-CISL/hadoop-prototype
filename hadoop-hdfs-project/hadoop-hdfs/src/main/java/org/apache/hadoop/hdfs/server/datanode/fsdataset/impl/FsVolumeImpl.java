@@ -873,9 +873,17 @@ public class FsVolumeImpl implements FsVolumeSpi {
   }
 
   void addBlockPool(String bpid, Configuration conf) throws IOException {
-    File bpdir = new File(currentDir, bpid);
-    BlockPoolSlice bp = new BlockPoolSlice(bpid, this, bpdir, conf);
-    bpSlices.put(bpid, bp);
+    //Added to make sure that adding a block pool a second time doesn't make any changes
+    BlockPoolSlice bp = bpSlices.get(bpid);
+    if (bp == null) {
+      File bpdir = new File(currentDir, bpid);
+      bp = new BlockPoolSlice(bpid, this, bpdir, conf);
+      bpSlices.put(bpid, bp);
+    }
+    else {
+      //do nothing
+    }
+      
   }
   
   void shutdownBlockPool(String bpid, BlockListAsLongs blocksListsAsLongs) {
