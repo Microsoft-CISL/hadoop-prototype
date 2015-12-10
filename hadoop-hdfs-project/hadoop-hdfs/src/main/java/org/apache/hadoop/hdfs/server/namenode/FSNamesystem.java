@@ -1705,6 +1705,8 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       res = FSDirStatAndListingOp.getBlockLocations(
           dir, pc, srcArg, offset, length, true);
       if (isInSafeMode()) {
+        // !#! need to resolve provided here, b/c may return DatanodeDescriptor
+        // !#! without verifying that a DN with that Storage exists
         for (LocatedBlock b : res.blocks.getLocatedBlocks()) {
           // if safemode & no block locations yet then throw safemodeException
           if ((b.getLocations() == null) || (b.getLocations().length == 0)) {

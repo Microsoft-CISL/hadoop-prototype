@@ -311,7 +311,7 @@ public class BlockManager implements BlockStatsMXBean {
       DFSConfigKeys.DFS_NAMENODE_REPLICATION_PENDING_TIMEOUT_SEC_DEFAULT) * 1000L);
 
     // !#! schedule load of provided replicas to storage
-    provided = new ProvidedStorageMap(conf);
+    provided = new ProvidedStorageMap(namesystem, this, conf);
 
     blockTokenSecretManager = createBlockTokenSecretManager(conf);
 
@@ -2108,7 +2108,7 @@ public class BlockManager implements BlockStatsMXBean {
    * @param report - the initial block report, to be processed
    * @throws IOException 
    */
-  private void processFirstBlockReport(
+  void processFirstBlockReport(
       final DatanodeStorageInfo storageInfo,
       final BlockListAsLongs report) throws IOException {
     if (report == null) return;

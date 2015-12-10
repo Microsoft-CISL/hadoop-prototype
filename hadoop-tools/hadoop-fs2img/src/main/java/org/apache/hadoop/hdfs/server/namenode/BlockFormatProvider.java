@@ -32,10 +32,10 @@ public class BlockFormatProvider extends BlockProvider implements Configurable {
   }
 
   @Override
-  public Iterator<BlockInfo> iterator() {
+  public Iterator<Block> iterator() {
     try {
       final BlockFormat.Reader<? extends BlockAlias> r = fmt.getReader(null);
-      return new Iterator<BlockInfo>() {
+      return new Iterator<Block>() {
 
         final Iterator<? extends BlockAlias> inner = r.iterator();
 
@@ -45,9 +45,9 @@ public class BlockFormatProvider extends BlockProvider implements Configurable {
         }
 
         @Override
-        public BlockInfo next() {
-          Block blk = inner.next().getBlock();
-          return new BlockInfoContiguous(blk, (short)1);
+        public Block next() {
+          return inner.next().getBlock();
+          //return new BlockInfoContiguous(blk, (short)1);
         }
 
         @Override
