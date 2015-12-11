@@ -56,7 +56,9 @@ public class ProvidedStorageMap {
   //       possibly snare from getStorage
 
   DatanodeStorageInfo getStorage(DatanodeDescriptor dn, DatanodeStorage s) {
-    if (storageId != null && storageId.equals(s.getStorageID())) {
+    if (storageId != null
+        && StorageType.PROVIDED.equals(s.getStorageType())
+        && storageId.equals(s.getStorageID())) {
       return storage;
     }
     return dn.getStorageInfo(s.getStorageID());
@@ -149,6 +151,7 @@ public class ProvidedStorageMap {
           bm.processFirstBlockReport(storage, new ProvidedBlockList(iterator()));
           return true;
         } catch (IOException e) {
+          e.printStackTrace();
           return false;
         } finally {
           lock.writeUnlock();
