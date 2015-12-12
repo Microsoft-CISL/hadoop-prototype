@@ -5,13 +5,15 @@ import java.util.Iterator;
 
 import org.apache.hadoop.conf.Configurable;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.server.blockmanagement.ProvidedStorageMap.BlockProvider;
+import org.apache.hadoop.hdfs.server.common.BlockAlias;
+import org.apache.hadoop.hdfs.server.common.BlockFormat;
+import org.apache.hadoop.hdfs.server.common.TextFileRegionFormat;
 import org.apache.hadoop.util.ReflectionUtils;
 
 public class BlockFormatProvider extends BlockProvider implements Configurable {
-
-  public static final String BLOCK_CLASS = ImageWriter.Options.BLOCK_CLASS;
 
   private Configuration conf;
   private BlockFormat<? extends BlockAlias> fmt;
@@ -19,7 +21,7 @@ public class BlockFormatProvider extends BlockProvider implements Configurable {
   @Override
   public void setConf(Configuration conf) {
     Class<? extends BlockFormat> c =
-      conf.getClass(BLOCK_CLASS, TextFileRegionFormat.class, BlockFormat.class);
+      conf.getClass(DFSConfigKeys.IMAGE_WRITER_BLK_CLASS, TextFileRegionFormat.class, BlockFormat.class);
     fmt = ReflectionUtils.newInstance(c, conf);
     this.conf = conf;
   }

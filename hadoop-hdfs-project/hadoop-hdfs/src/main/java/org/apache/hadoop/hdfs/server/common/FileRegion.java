@@ -1,4 +1,4 @@
-package org.apache.hadoop.hdfs.server.namenode;
+package org.apache.hadoop.hdfs.server.common;
 
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.protocol.Block;
@@ -41,4 +41,11 @@ public class FileRegion implements BlockAlias {
     return (int)(blockId & Integer.MIN_VALUE);
   }
 
+  public Path getPath() {
+    return path;
+  }
+  
+  public long getOffset() {
+    return offset;
+  }
 }

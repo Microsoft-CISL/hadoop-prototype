@@ -1,4 +1,4 @@
-package org.apache.hadoop.hdfs.server.namenode;
+package org.apache.hadoop.hdfs.server.common;
 
 import java.io.Closeable;
 import java.io.IOException;

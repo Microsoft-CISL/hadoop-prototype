@@ -122,6 +122,8 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final String DFS_NAMENODE_PROVIDED_BLKPID = "0";
   public static final String DFS_NAMENODE_PROVIDED_STORAGEUUID = "0";
   public static final String DFS_DATANODE_PROVIDED_BLKCACHE= "providedCache/";
+  public static final String DFS_NAMENODE_BLK_PROVIDER_CLASS = "hdfs.namenode.block.provider.class";
+  public static final String IMAGE_WRITER_BLK_CLASS = "hdfs.image.writer.block.class";
 
   // This setting is for testing/internal use only.
   public static final String  DFS_DATANODE_DUPLICATE_REPLICA_DELETION = "dfs.datanode.duplicate.replica.deletion";

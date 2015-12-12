@@ -26,6 +26,9 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocalFileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hdfs.DFSConfigKeys;
+import org.apache.hadoop.hdfs.server.common.BlockFormat;
+import org.apache.hadoop.hdfs.server.common.FileRegion;
 import org.apache.hadoop.hdfs.server.namenode.FSImageFormatProtobuf.SectionName;
 import org.apache.hadoop.hdfs.server.namenode.FsImageProto.CacheManagerSection;
 import org.apache.hadoop.hdfs.server.namenode.FsImageProto.FileSummary;
@@ -471,7 +474,6 @@ public class ImageWriter implements Closeable {
     public static final String START_INODE = "hdfs.image.writer.start.inode";
     public static final String CACHE_ENTRY = "hdfs.image.writer.cache.entries";
     public static final String UGI_CLASS   = "hdfs.image.writer.ugi.class";
-    public static final String BLOCK_CLASS = "hdfs.image.writer.block.class";
     public static final String BLKID_CLASS = "hdfs.image.writer.blockid.class";
     //public static final String LAST_TXN    = "hdfs.image.writer.last.txn";
 
@@ -505,7 +507,7 @@ public class ImageWriter implements Closeable {
       maxdircache = conf.getInt(CACHE_ENTRY, 100);
       ugisClass = conf.getClass(UGI_CLASS,
           SingleUGIResolver.class, UGIResolver.class);
-      blocksClass = conf.getClass(BLOCK_CLASS,
+      blocksClass = conf.getClass(DFSConfigKeys.IMAGE_WRITER_BLK_CLASS,
           NullBlockFormat.class, BlockFormat.class);
       blockIdsClass = conf.getClass(BLKID_CLASS,
           FixedBlockResolver.class, BlockResolver.class);

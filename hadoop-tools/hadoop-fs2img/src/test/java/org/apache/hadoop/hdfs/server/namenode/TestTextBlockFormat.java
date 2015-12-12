@@ -8,11 +8,13 @@ import java.util.Iterator;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hdfs.server.common.FileRegion;
+import org.apache.hadoop.hdfs.server.common.TextFileRegionFormat;
+import org.apache.hadoop.hdfs.server.common.TextFileRegionFormat.*;
 import org.apache.hadoop.io.DataInputBuffer;
 import org.apache.hadoop.io.DataOutputBuffer;
 import org.apache.hadoop.io.compress.CompressionCodec;
 
-import static org.apache.hadoop.hdfs.server.namenode.TextFileRegionFormat.*;
 
 import org.junit.Test;
 import static org.junit.Assert.*;
@@ -25,7 +27,7 @@ public class TestTextBlockFormat {
       final Class<? extends CompressionCodec> vc) throws IOException {
     TextFileRegionFormat mFmt = new TextFileRegionFormat() {
       @Override
-      TextWriter createWriter(Path file, CompressionCodec codec, String delim,
+      public TextWriter createWriter(Path file, CompressionCodec codec, String delim,
           Configuration conf) throws IOException {
         assertEquals(vp, file);
         if (null == vc) {
@@ -45,9 +47,9 @@ public class TestTextBlockFormat {
     assertTrue(opts instanceof WriterOptions);
     WriterOptions wopts = (WriterOptions) opts;
     Path curdir = new Path(new File(".").toURI().toString());
-    Path def = new Path(curdir, DEFNAME);
-    assertEquals(def, wopts.file);
-    assertNull(wopts.codec);
+    Path def = new Path(curdir, TextFileRegionFormat.DEFNAME);
+    assertEquals(def, wopts.getFile());
+    assertNull(wopts.getCodec());
 
     opts.filename(OUTFILE);
     check(opts, OUTFILE, null);
@@ -73,6 +75,7 @@ public class TestTextBlockFormat {
     Iterator<FileRegion> i3;
     try (TextReader csv = new TextReader(null, null, null, ",") {
       @Override
+      public
       InputStream createStream() {
         DataInputBuffer in = new DataInputBuffer();
         in.reset(out.getData(), 0, out.getLength());
@@ -113,7 +116,7 @@ public class TestTextBlockFormat {
     Iterator<FileRegion> i3;
     try (TextReader csv = new TextReader(null, null, null, "\t") {
       @Override
-      InputStream createStream() {
+      public InputStream createStream() {
         DataInputBuffer in = new DataInputBuffer();
         in.reset(out.getData(), 0, out.getLength());
         return in;

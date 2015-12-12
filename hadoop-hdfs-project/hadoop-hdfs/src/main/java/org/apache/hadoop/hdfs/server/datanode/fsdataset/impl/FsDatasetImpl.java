@@ -306,6 +306,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
   
   FsVolumeImpl providedVolume;
   ProvidedCacheManager providedCacheManager;
+  ProvidedBlockManager providedBlockManager;
   /**
    * An FSDataset has a directory where it loads its data files.
    */
@@ -401,79 +402,24 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     
     if(providedEnabled) {
       //TODO have something reasonable for storage Uuid
-      String providedStorageUuid = "0"; 
-      FsVolumeImpl providedVolume = createFsVolume(providedStorageUuid, null, StorageType.PROVIDED);
+      String providedStorageUuid = DFSConfigKeys.DFS_NAMENODE_PROVIDED_STORAGEUUID; 
+      providedVolume = createFsVolume(providedStorageUuid, null, StorageType.PROVIDED);
       //TODO - obtained provided pool id from NN?
-      providedVolume.addBlockPool(DFSConfigKeys.DFS_NAMENODE_PROVIDED_BLKPID, conf);
+      //providedVolume.addBlockPool(DFSConfigKeys.DFS_NAMENODE_PROVIDED_BLKPID, conf);
       storageMap.put(providedStorageUuid,
           new DatanodeStorage(providedStorageUuid,
               DatanodeStorage.State.NORMAL,
               StorageType.PROVIDED));
       
-      volumes.addVolume(providedVolume.obtainReference());
-      volumes.addBlockPool(DFSConfigKeys.DFS_NAMENODE_PROVIDED_BLKPID, conf);
-      volumeMap.initBlockPool(DFSConfigKeys.DFS_NAMENODE_PROVIDED_BLKPID);
       //TODO verify if the DataStorage needs to know about this volume?
-      try{
-        readInBlockIdtoFileMapForProvided(conf.get(DFSConfigKeys.DFS_DATANODE_PROVIDED_BLOCKIDFILE), providedVolume);
-      } catch (IOException e) {
-        LOG.warn("Error in reading the block id map file");
-      }
-      
+      volumes.addVolume(providedVolume.obtainReference());
       providedCacheManager = new ProvidedCacheManager(this);
+      providedBlockManager = new ProvidedBlockManager(volumeMap, providedVolume, conf);
+      
     }
     
   }
 
-  private void readInBlockIdtoFileMapForProvided(String blockIdFilename, FsVolumeImpl providedVolume) throws IOException {
-    
-    //assume the file is a local file
-    //expect the file to be a csv with blockId, URIname, offset
-    if(blockIdFilename == null) {
-      LOG.warn("Block id file not specified for provided type");
-    } else {
-      LOG.info("Block id map for provided is given-- file being used is " + blockIdFilename);
-      BufferedReader br = null;
-      blockIdtoFileMap = new HashMap<Long, ProvidedBlockInfo>();
-      
-      try {
-        br = new BufferedReader(new FileReader(blockIdFilename));
-        String line = br.readLine();
-        
-        while (line != null) {
-          String[] blockIdMap = line.split(",");
-          if (blockIdMap.length == 4) {
-            if(this.blockIdtoFileMap.get(blockIdMap[0]) != null)
-              LOG.warn("Block id " + blockIdMap[0] + " has been repeated; taking in the latter map");
-            
-            long blockId = Long.parseLong(blockIdMap[0]);
-            String fileURI = blockIdMap[1].replace("\n", "").replace("\t", "");;
-            long offset = Long.parseLong(blockIdMap[2]);
-            long blockLen = Long.parseLong(blockIdMap[3]);
-            
-            this.blockIdtoFileMap.put(blockId, new ProvidedBlockInfo(offset, blockLen, fileURI));
-            
-            //create a provided replica
-            //TODO figure out generation stamp
-            ReplicaInfo info = new ProvidedReplica(blockId, URI.create(fileURI), 
-                offset, blockLen, 0, providedVolume, conf); 
-            LOG.info("Adding block info " + info);
-            volumeMap.add(providedVolume.getBlockPoolList()[0], info);
-          }
-          line = br.readLine();
-        }
-        
-      } catch (FileNotFoundException e) {
-        LOG.warn("File " + blockIdFilename + " has not been found");
-      } finally {
-        if (br != null) {
-          br.close();
-        }
-      }
-    }
-    
-    
-  }
   /**
    * Gets initial volume failure information for all volumes that failed
    * immediately at startup.  The method works by determining the set difference
@@ -2749,7 +2695,8 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     LOG.info("Adding block pool " + bpid);
     synchronized(this) {   
       volumes.addBlockPool(bpid, conf);
-      volumeMap.initBlockPool(bpid);
+      volumeMap.initBlockPool(bpid);      
+      providedBlockManager.readBlocks(bpid);
     }
     volumes.getAllVolumesMap(bpid, volumeMap, ramDiskReplicaTracker);
   }

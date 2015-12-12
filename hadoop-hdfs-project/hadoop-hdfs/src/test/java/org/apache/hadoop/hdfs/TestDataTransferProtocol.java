@@ -60,6 +60,7 @@ import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.BlockOpResponseP
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.ReadOpChecksumInfoProto;
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.Status;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenSecretManager;
+import org.apache.hadoop.hdfs.server.common.TextFileRegionFormat.ReaderOptions;
 import org.apache.hadoop.hdfs.server.datanode.CachingStrategy;
 import org.apache.hadoop.hdfs.server.datanode.DataNodeTestUtils;
 import org.apache.hadoop.io.IOUtils;
@@ -224,7 +225,8 @@ public class TestDataTransferProtocol {
     Configuration conf = new HdfsConfiguration();
     conf.setInt(DFSConfigKeys.DFS_REPLICATION_KEY, numDataNodes); 
     conf.setBoolean(DFSConfigKeys.DFS_DATANODE_PROVIDED, true);
-    conf.set(DFSConfigKeys.DFS_DATANODE_PROVIDED_BLOCKIDFILE, "/home/virajith/blockid_map.txt");
+    conf.set(ReaderOptions.FILEPATH, "file:///home/virajith/blockid_map.txt");
+    conf.set(ReaderOptions.DELIMITER, ",");
     
     MiniDFSCluster cluster = new MiniDFSCluster.Builder(conf).numDataNodes(numDataNodes).build();
     try {
@@ -236,7 +238,7 @@ public class TestDataTransferProtocol {
       /* Test OP_READ_BLOCK */
       long blockId = 1;
       
-      ExtendedBlock blk = new ExtendedBlock(DFSConfigKeys.DFS_NAMENODE_PROVIDED_BLKPID, blockId); 
+      ExtendedBlock blk = new ExtendedBlock(cluster.getNamesystem().getBlockPoolId(), blockId); 
       
 //      FileSystem fs = FileSystem.newInstance(URI.create("/home/virajith/blockid_map.txt"), conf);
 //      

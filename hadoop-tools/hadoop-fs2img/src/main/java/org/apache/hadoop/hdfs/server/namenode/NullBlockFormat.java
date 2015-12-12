@@ -5,7 +5,9 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 import org.apache.hadoop.hdfs.protocol.Block;
-import org.apache.hadoop.hdfs.server.namenode.BlockFormat.Reader.Options;
+import org.apache.hadoop.hdfs.server.common.BlockFormat;
+import org.apache.hadoop.hdfs.server.common.BlockFormat.Reader.Options;
+import org.apache.hadoop.hdfs.server.common.FileRegion;
 
 public class NullBlockFormat extends BlockFormat<FileRegion> {
 

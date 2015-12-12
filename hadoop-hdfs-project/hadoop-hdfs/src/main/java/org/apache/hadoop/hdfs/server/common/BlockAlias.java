@@ -1,4 +1,4 @@
-package org.apache.hadoop.hdfs.server.namenode;
+package org.apache.hadoop.hdfs.server.common;
 
 import org.apache.hadoop.hdfs.protocol.Block;
 

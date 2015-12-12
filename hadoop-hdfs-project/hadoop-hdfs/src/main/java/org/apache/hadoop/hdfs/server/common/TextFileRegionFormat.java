@@ -1,4 +1,4 @@
-package org.apache.hadoop.hdfs.server.namenode;
+package org.apache.hadoop.hdfs.server.common;
 
 import java.io.File;
 import java.io.IOException;
@@ -102,7 +102,7 @@ public class TextFileRegionFormat
   }
 
   @VisibleForTesting
-  TextWriter createWriter(Path file, CompressionCodec codec, String delim,
+  public TextWriter createWriter(Path file, CompressionCodec codec, String delim,
       Configuration conf) throws IOException {
     FileSystem fs = file.getFileSystem(conf);
     if (fs instanceof LocalFileSystem) {
@@ -159,7 +159,7 @@ public class TextFileRegionFormat
     private Configuration conf;
     protected String codec = null;
     protected Path file = new Path(new File(DEFNAME).toURI().toString());
-    protected String delim = DELIMITER;
+    public String delim = DELIMITER;
 
     @Override
     public void setConf(Configuration conf) {
@@ -181,6 +181,14 @@ public class TextFileRegionFormat
       return this;
     }
 
+    public String getCodec() {
+      return codec;
+    }
+    
+    public Path getFile() {
+      return file;
+    }
+
     @Override
     public WriterOptions codec(String codec) {
       this.codec = codec;
@@ -195,7 +203,7 @@ public class TextFileRegionFormat
 
   }
 
-  static class TextReader extends Reader<FileRegion> {
+  public static class TextReader extends Reader<FileRegion> {
 
     public interface Options extends Reader.Options {
       Options filename(Path file);
@@ -291,7 +299,7 @@ public class TextFileRegionFormat
           Long.valueOf(f[2]), Long.valueOf(f[3]));
     }
 
-    InputStream createStream() throws IOException {
+    public InputStream createStream() throws IOException {
       InputStream i = fs.open(file);
       if (codec != null) {
         i = codec.createInputStream(i);
@@ -338,12 +346,12 @@ public class TextFileRegionFormat
 
   }
 
-  static class TextWriter extends Writer<FileRegion> {
+  public static class TextWriter extends Writer<FileRegion> {
 
     final String delim;
     final java.io.Writer out;
 
-    protected TextWriter(java.io.Writer out, String delim) {
+    public TextWriter(java.io.Writer out, String delim) {
       this.out = out;
       this.delim = delim;
     }

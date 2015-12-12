@@ -11,6 +11,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.hdfs.HdfsConfiguration;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
+import org.apache.hadoop.hdfs.server.common.TextFileRegionFormat;
 import org.apache.hadoop.hdfs.server.namenode.ImageWriter;
 import org.apache.hadoop.hdfs.server.namenode.FixedBlockResolver;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_NAME_DIR_KEY;
@@ -76,12 +77,12 @@ public class TestNNLoad {
     }
   }
 
-  void startCluster(Path nspath) throws IOException {
+  void startCluster(Path nspath, int numDatanodes) throws IOException {
     conf.set(DFS_NAMENODE_NAME_DIR_KEY, nspath.toString());
     cluster = new MiniDFSCluster.Builder(conf)
       .format(false)
       .manageNameDfsDirs(false)
-      .numDataNodes(0)
+      .numDataNodes(numDatanodes)
       .build();
     cluster.waitActive();
   }
@@ -90,7 +91,7 @@ public class TestNNLoad {
   public void testLoadImage() throws Exception {
     final long seed = r.nextLong();
     createImage(new RandomTreeWalk(seed), NAMEPATH);
-    startCluster(NAMEPATH);
+    startCluster(NAMEPATH, 0);
 
     FileSystem fs = cluster.getFileSystem();
     for (TreePath e : new RandomTreeWalk(seed)) {
@@ -116,7 +117,8 @@ public class TestNNLoad {
   public void testBlockLoad() throws Exception {
     final long seed = r.nextLong();
     createImage(new RandomTreeWalk(seed), NAMEPATH);
-    startCluster(NAMEPATH);
+    startCluster(NAMEPATH, 1);
+    
   }
 
 }
