@@ -19,6 +19,7 @@ public class BlockFormatProvider extends BlockProvider implements Configurable {
   private BlockFormat<? extends BlockAlias> fmt;
 
   @Override
+  @SuppressWarnings({ "rawtypes", "unchecked" })
   public void setConf(Configuration conf) {
     Class<? extends BlockFormat> c =
       conf.getClass(DFSConfigKeys.IMAGE_WRITER_BLK_CLASS, TextFileRegionFormat.class, BlockFormat.class);

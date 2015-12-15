@@ -369,6 +369,7 @@ public class DatanodeStorageInfo {
     if (datanode == null) {
       return null;
     }
+    // !#! used by block placement; resolve provided here?
     for(DatanodeStorageInfo storage : infos) {
       if (storage.getDatanodeDescriptor() == datanode) {
         return storage;

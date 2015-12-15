@@ -157,7 +157,7 @@ public class DatanodeDescriptor extends DatanodeInfo {
 
   private BitSet curBlockReportRpcsSeen = null;
 
-  private final Map<String, DatanodeStorageInfo> storageMap =
+  protected final Map<String, DatanodeStorageInfo> storageMap =
       new HashMap<>();
 
   /**

@@ -783,7 +783,7 @@ public class BlockManager implements BlockStatsMXBean {
     final long fileLength = bc.computeContentSummary(
         getStoragePolicySuite()).getLength();
     final long pos = fileLength - lastBlock.getNumBytes();
-    return createLocatedBlock(lastBlock, pos,
+    return createLocatedBlock(null, lastBlock, pos,
         BlockTokenIdentifier.AccessMode.WRITE);
   }
 
@@ -802,9 +802,10 @@ public class BlockManager implements BlockStatsMXBean {
     return locations;
   }
   
-  private List<LocatedBlock> createLocatedBlockList(
+  private void createLocatedBlockList(
+      LocatedBlockBuilder locatedBlocks,
       final BlockInfo[] blocks,
-      final long offset, final long length, final int nrBlocksToReturn,
+      final long offset, final long length, //final int nrBlocksToReturn,
       final AccessMode mode) throws IOException {
     int curBlk = 0;
     long curPos = 0, blkSize = 0;
@@ -818,22 +819,28 @@ public class BlockManager implements BlockStatsMXBean {
       curPos += blkSize;
     }
 
-    if (nrBlocks > 0 && curBlk == nrBlocks)   // offset >= end of file
-      return Collections.<LocatedBlock>emptyList();
+    if (nrBlocks > 0 && curBlk == nrBlocks) {  // offset >= end of file
+      //return Collections.<LocatedBlock>emptyList();
+      return;
+    }
 
     long endOff = offset + length;
-    List<LocatedBlock> results = new ArrayList<LocatedBlock>(blocks.length);
+    //List<LocatedBlock> results = new ArrayList<LocatedBlock>(blocks.length);
     do {
-      results.add(createLocatedBlock(blocks[curBlk], curPos, mode));
+      //results.add(createLocatedBlock(blocks[curBlk], curPos, mode));
+      locatedBlocks.addBlock(
+          createLocatedBlock(locatedBlocks, blocks[curBlk], curPos, mode));
       curPos += blocks[curBlk].getNumBytes();
       curBlk++;
     } while (curPos < endOff 
           && curBlk < blocks.length
-          && results.size() < nrBlocksToReturn);
-    return results;
+          && !locatedBlocks.isBlockMax()); //results.size() < nrBlocksToReturn);
+    return;
+    //return results;
   }
 
-  private LocatedBlock createLocatedBlock(final BlockInfo[] blocks,
+  private LocatedBlock createLocatedBlock(LocatedBlockBuilder locatedBlocks,
+      final BlockInfo[] blocks,
       final long endPos, final AccessMode mode) throws IOException {
     int curBlk = 0;
     long curPos = 0;
@@ -846,12 +853,13 @@ public class BlockManager implements BlockStatsMXBean {
       curPos += blkSize;
     }
     
-    return createLocatedBlock(blocks[curBlk], curPos, mode);
+    return createLocatedBlock(locatedBlocks, blocks[curBlk], curPos, mode);
   }
   
-  private LocatedBlock createLocatedBlock(final BlockInfo blk, final long pos,
+  private LocatedBlock createLocatedBlock(LocatedBlockBuilder locatedBlocks,
+      final BlockInfo blk, final long pos,
     final AccessMode mode) throws IOException {
-    final LocatedBlock lb = createLocatedBlock(blk, pos);
+    final LocatedBlock lb = createLocatedBlock(locatedBlocks, blk, pos);
     if (mode != null) {
       setBlockToken(lb, mode);
     }
@@ -859,13 +867,15 @@ public class BlockManager implements BlockStatsMXBean {
   }
 
   /** @return a LocatedBlock for the given block */
-  private LocatedBlock createLocatedBlock(final BlockInfo blk, final long pos
-      ) throws IOException {
+  private LocatedBlock createLocatedBlock(LocatedBlockBuilder locatedBlocks,
+      final BlockInfo blk, final long pos) throws IOException {
     if (!blk.isComplete()) {
       final DatanodeStorageInfo[] storages = blk.getUnderConstructionFeature()
           .getExpectedStorageLocations();
       final ExtendedBlock eb = new ExtendedBlock(namesystem.getBlockPoolId(), blk);
-      return newLocatedBlock(eb, storages, pos, false);
+      return null == locatedBlocks
+        ? newLocatedBlock(eb, storages, pos, false)
+        : locatedBlocks.newLocatedBlock(eb, storages, pos, false);
     }
 
     // get block locations
@@ -897,7 +907,9 @@ public class BlockManager implements BlockStatsMXBean {
       " numCorrupt: " + numCorruptNodes +
       " numCorruptRepls: " + numCorruptReplicas;
     final ExtendedBlock eb = new ExtendedBlock(namesystem.getBlockPoolId(), blk);
-    return newLocatedBlock(eb, machines, pos, isCorrupt);
+    return null == locatedBlocks
+      ? newLocatedBlock(eb, machines, pos, isCorrupt)
+      : locatedBlocks.newLocatedBlock(eb, machines, pos, isCorrupt);
   }
 
   /** Create a LocatedBlocks. */
@@ -918,8 +930,11 @@ public class BlockManager implements BlockStatsMXBean {
         LOG.debug("blocks = " + java.util.Arrays.asList(blocks));
       }
       final AccessMode mode = needBlockToken? BlockTokenIdentifier.AccessMode.READ: null;
-      final List<LocatedBlock> locatedblocks = createLocatedBlockList(
-          blocks, offset, length, Integer.MAX_VALUE, mode);
+      LocatedBlockBuilder locatedBlocks =
+        provided.newLocatedBlocks(Integer.MAX_VALUE);
+      //final List<LocatedBlock> locatedblocks = createLocatedBlockList(
+      createLocatedBlockList(locatedBlocks, blocks, offset, length, mode);
+          //blocks, offset, length, Integer.MAX_VALUE, mode);
 
       final LocatedBlock lastlb;
       final boolean isComplete;
@@ -928,16 +943,22 @@ public class BlockManager implements BlockStatsMXBean {
         final long lastPos = last.isComplete()?
             fileSizeExcludeBlocksUnderConstruction - last.getNumBytes()
             : fileSizeExcludeBlocksUnderConstruction;
-        lastlb = createLocatedBlock(last, lastPos, mode);
+        lastlb = createLocatedBlock(locatedBlocks, last, lastPos, mode);
         isComplete = last.isComplete();
       } else {
-        lastlb = createLocatedBlock(blocks,
+        lastlb = createLocatedBlock(locatedBlocks, blocks,
             fileSizeExcludeBlocksUnderConstruction, mode);
         isComplete = true;
       }
-      return new LocatedBlocks(
-          fileSizeExcludeBlocksUnderConstruction, isFileUnderConstruction,
-          locatedblocks, lastlb, isComplete, feInfo);
+      return locatedBlocks.fileLength(fileSizeExcludeBlocksUnderConstruction)
+        .lastUC(isFileUnderConstruction)
+        .lastBlock(lastlb)
+        .lastComplete(isComplete)
+        .encryption(feInfo)
+        .build();
+      //return new LocatedBlocks(
+      //    fileSizeExcludeBlocksUnderConstruction, isFileUnderConstruction,
+      //    locatedblocks, lastlb, isComplete, feInfo);
     }
   }
 
@@ -1836,6 +1857,7 @@ public class BlockManager implements BlockStatsMXBean {
 
       if (storageInfo == null) {
         // We handle this for backwards compatibility.
+        // !#! OK, does nothing
         storageInfo = node.updateStorage(storage);
       }
       if (namesystem.isInStartupSafeMode()

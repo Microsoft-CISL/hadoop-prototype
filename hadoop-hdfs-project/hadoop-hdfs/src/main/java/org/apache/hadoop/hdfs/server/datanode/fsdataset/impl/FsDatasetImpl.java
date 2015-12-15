@@ -400,7 +400,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
       DFSConfigKeys.DFS_DATANODE_PROVIDED, 
       DFSConfigKeys.DFS_DATANODE_PROVIDED_DEFAULT);
     
-    if(providedEnabled) {
+    if (providedEnabled) {
       //TODO have something reasonable for storage Uuid
       String providedStorageUuid = DFSConfigKeys.DFS_NAMENODE_PROVIDED_STORAGEUUID; 
       providedVolume = createFsVolume(providedStorageUuid, null, StorageType.PROVIDED);
@@ -2695,8 +2695,10 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     LOG.info("Adding block pool " + bpid);
     synchronized(this) {   
       volumes.addBlockPool(bpid, conf);
-      volumeMap.initBlockPool(bpid);      
-      providedBlockManager.readBlocks(bpid);
+      volumeMap.initBlockPool(bpid);
+      if (providedBlockManager != null) {
+        providedBlockManager.readBlocks(bpid);
+      }
     }
     volumes.getAllVolumesMap(bpid, volumeMap, ramDiskReplicaTracker);
   }
