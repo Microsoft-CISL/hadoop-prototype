@@ -62,40 +62,47 @@ public class LocatedBlock {
 
   public LocatedBlock(ExtendedBlock b, DatanodeInfo[] locs) {
     // By default, startOffset is unknown(-1) and corrupt is false.
-    this(b, locs, null, null, -1, false, EMPTY_LOCS);
+    this(b, convert(locs, null, null), null, null, -1, false, EMPTY_LOCS);
   }
 
   public LocatedBlock(ExtendedBlock b, DatanodeInfo[] locs,
       String[] storageIDs, StorageType[] storageTypes) {
-    this(b, locs, storageIDs, storageTypes, -1, false, EMPTY_LOCS);
+    this(b, convert(locs, storageIDs, storageTypes),
+         storageIDs, storageTypes, -1, false, EMPTY_LOCS);
   }
 
   public LocatedBlock(ExtendedBlock b, DatanodeInfo[] locs, String[] storageIDs,
       StorageType[] storageTypes, long startOffset,
       boolean corrupt, DatanodeInfo[] cachedLocs) {
+    this(b, convert(locs, storageIDs, storageTypes),
+        storageIDs, storageTypes, startOffset, corrupt,
+        null == cachedLocs || 0 == cachedLocs.length ? EMPTY_LOCS : cachedLocs);
+  }
+
+  public LocatedBlock(ExtendedBlock b, DatanodeInfoWithStorage[] locs,
+      String[] storageIDs, StorageType[] storageTypes, long startOffset,
+      boolean corrupt, DatanodeInfo[] cachedLocs) {
     this.b = b;
     this.offset = startOffset;
     this.corrupt = corrupt;
-    if (locs==null) {
-      this.locs = EMPTY_LOCS;
-    } else {
-      this.locs = new DatanodeInfoWithStorage[locs.length];
-      for(int i = 0; i < locs.length; i++) {
-        DatanodeInfo di = locs[i];
-        DatanodeInfoWithStorage storage = new DatanodeInfoWithStorage(di,
-            storageIDs != null ? storageIDs[i] : null,
-            storageTypes != null ? storageTypes[i] : null);
-        this.locs[i] = storage;
-      }
-    }
+    this.locs = locs;
     this.storageIDs = storageIDs;
     this.storageTypes = storageTypes;
+    this.cachedLocs = cachedLocs;
+  }
 
-    if (cachedLocs == null || cachedLocs.length == 0) {
-      this.cachedLocs = EMPTY_LOCS;
-    } else {
-      this.cachedLocs = cachedLocs;
+  private static DatanodeInfoWithStorage[] convert(
+      DatanodeInfo[] infos, String[] storageIDs, StorageType[] storageTypes) {
+    if (null == infos) {
+      return EMPTY_LOCS;
     }
+    DatanodeInfoWithStorage[] ret = new DatanodeInfoWithStorage[infos.length];
+    for(int i = 0; i < infos.length; i++) {
+      ret[i] = new DatanodeInfoWithStorage(infos[i],
+          storageIDs   != null ? storageIDs[i]   : null,
+          storageTypes != null ? storageTypes[i] : null);
+    }
+    return ret;
   }
 
   public Token<BlockTokenIdentifier> getBlockToken() {

@@ -236,12 +236,12 @@ public class DatanodeID implements Comparable<DatanodeID> {
     return this == to ||
         (to instanceof DatanodeID &&
             getXferAddr().equals(((DatanodeID) to).getXferAddr()) &&
-            datanodeUuid.equals(((DatanodeID) to).getDatanodeUuid()));
+            getDatanodeUuid().equals(((DatanodeID) to).getDatanodeUuid()));
   }
 
   @Override
   public int hashCode() {
-    return datanodeUuid.hashCode();
+    return getDatanodeUuid().hashCode();
   }
 
   @Override

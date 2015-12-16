@@ -3,6 +3,7 @@ package org.apache.hadoop.hdfs.server.blockmanagement;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
@@ -26,6 +27,7 @@ import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.BlockListAsLongs;
 import org.apache.hadoop.hdfs.protocol.DatanodeID;
 import org.apache.hadoop.hdfs.protocol.DatanodeInfo;
+import org.apache.hadoop.hdfs.protocol.DatanodeInfoWithStorage;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.protocol.LocatedBlock;
 import org.apache.hadoop.hdfs.protocol.LocatedBlocks;
@@ -91,55 +93,86 @@ public class ProvidedStorageMap {
     return dn.getStorageInfo(s.getStorageID());
   }
 
-  public LocatedBlock newLocatedBlock(
-      ExtendedBlock b, DatanodeStorageInfo[] storages,
-      long startOffset, boolean corrupt) {
-    if (null == storageId) {
-      return new LocatedBlock(
-          b, DatanodeStorageInfo.toDatanodeInfos(storages),
-          DatanodeStorageInfo.toStorageIDs(storages),
-          DatanodeStorageInfo.toStorageTypes(storages),
-          startOffset, corrupt,
-          null);
-    }
-    for (DatanodeStorageInfo s : storages) {
-      if (s == storage) {
-      }
-    }
-    return null;
-  }
-
   public LocatedBlockBuilder newLocatedBlocks(int maxValue) {
     if (null == storageId) {
       return new LocatedBlockBuilder(maxValue);
     }
-    return null; // XXX
+    return new ProvidedBlocksBuilder(maxValue);
   }
 
-  static class ProvidedBlocksBuilder extends LocatedBlockBuilder {
-    // forall LocatedBlock in provided
-    //   share DatanodeInfo for provided replicas
-    //   lookup in DatanodeManager once client is resolved
+  class ProvidedBlocksBuilder extends LocatedBlockBuilder {
+
+    ShadowDNIWS pending;
+
     ProvidedBlocksBuilder(int maxBlocks) {
       super(maxBlocks);
+      pending = new ShadowDNIWS(dns, storageId);
     }
+
     @Override
     LocatedBlock newLocatedBlock(ExtendedBlock eb,
         DatanodeStorageInfo[] storages, long pos, boolean isCorrupt) {
-      DatanodeInfo[] locs = new DatanodeInfo[storages.length];
+      DatanodeInfoWithStorage[] locs =
+        new DatanodeInfoWithStorage[storages.length];
       String[] sids = new String[storages.length];
       StorageType[] types = new StorageType[storages.length];
       for (int i = 0; i < storages.length; ++i) {
         if (StorageType.PROVIDED.equals(storages[i].getStorageType())) {
-          // lookup
+          locs[i] = pending;
         } else {
-          locs[i] = storages[i].getDatanodeDescriptor();
+          locs[i] = new DatanodeInfoWithStorage(
+              storages[i].getDatanodeDescriptor(), sids[i], types[i]);
         }
         sids[i] = storages[i].getStorageID();
         types[i] = storages[i].getStorageType();
       }
       return new LocatedBlock(eb, locs, sids, types, pos, isCorrupt, null);
     }
+
+    @Override
+    LocatedBlocks build(DatanodeDescriptor client) {
+      // TODO: to support multiple provided storages, need to pass/maintain map
+      // set all fields of pending DatanodeInfo
+      DatanodeDescriptor dn = dns.choose(client);
+      pending.replaceInternal(dn);
+      return new LocatedBlocks(flen, isUC, blocks, last, lastComplete, feInfo);
+    }
+    @Override
+    LocatedBlocks build() {
+      return build(dns.chooseRandom());
+    }
+  }
+
+  static class ShadowDNIWS extends DatanodeInfoWithStorage {
+    String shadowUuid;
+
+    ShadowDNIWS(DatanodeDescriptor d, String storageId) {
+      super(d, storageId, StorageType.PROVIDED);
+    }
+
+    @Override
+    public String getDatanodeUuid() {
+      return shadowUuid;
+    }
+    public void setDatanodeUuid(String uuid) {
+      shadowUuid = uuid;
+    }
+    void replaceInternal(DatanodeDescriptor dn) {
+      updateRegInfo(dn); // overwrite DatanodeID (except UUID)
+      setCapacity(dn.getCapacity());
+      setDfsUsed(dn.getDfsUsed());
+      setRemaining(dn.getRemaining());
+      setBlockPoolUsed(dn.getBlockPoolUsed());
+      setCacheCapacity(dn.getCacheCapacity());
+      setCacheUsed(dn.getCacheUsed());
+      setLastUpdate(dn.getLastUpdate());
+      setLastUpdateMonotonic(dn.getLastUpdateMonotonic());
+      setXceiverCount(dn.getXceiverCount());
+      setNetworkLocation(dn.getNetworkLocation());
+      adminState = dn.getAdminState();
+      setUpgradeDomain(dn.getUpgradeDomain());
+    }
+
   }
 
   // NOTE: never resolved through registerDatanode, so not in the topology
@@ -173,18 +206,31 @@ public class ProvidedStorageMap {
       return storage;
     }
 
-    // TODO: recovery? invalidation?
+    DatanodeDescriptor choose(DatanodeDescriptor client) {
+      // exact match for now
+      DatanodeDescriptor dn = dns.get(client.getDatanodeUuid());
+      if (null == dn) {
+        dn = chooseRandom();
+      }
+      return dn;
+    }
 
-    @Override
-    void addBlockToBeReplicated(Block block, DatanodeStorageInfo[] targets) {
-      // pick a random datanode, delegate to it
+    DatanodeDescriptor chooseRandom() {
       // XXX Not uniformally random; skewed toward sparse sections of the ids
       Map.Entry<String,DatanodeDescriptor> d =
         dns.ceilingEntry(UUID.randomUUID().toString());
       if (null == d) {
         d = dns.firstEntry();
       }
-      d.getValue().addBlockToBeReplicated(block, targets);
+      return d.getValue();
+    }
+
+    // TODO: recovery? invalidation?
+
+    @Override
+    void addBlockToBeReplicated(Block block, DatanodeStorageInfo[] targets) {
+      // pick a random datanode, delegate to it
+      chooseRandom().addBlockToBeReplicated(block, targets);
     }
 
   }

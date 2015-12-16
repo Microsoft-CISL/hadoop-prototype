@@ -930,32 +930,37 @@ public class BlockManager implements BlockStatsMXBean {
         LOG.debug("blocks = " + java.util.Arrays.asList(blocks));
       }
       final AccessMode mode = needBlockToken? BlockTokenIdentifier.AccessMode.READ: null;
-      LocatedBlockBuilder locatedBlocks =
-        provided.newLocatedBlocks(Integer.MAX_VALUE);
+      LocatedBlockBuilder locatedBlocks = provided
+        .newLocatedBlocks(Integer.MAX_VALUE)
+        .fileLength(fileSizeExcludeBlocksUnderConstruction)
+        .lastUC(isFileUnderConstruction)
+        .encryption(feInfo);
       //final List<LocatedBlock> locatedblocks = createLocatedBlockList(
       createLocatedBlockList(locatedBlocks, blocks, offset, length, mode);
           //blocks, offset, length, Integer.MAX_VALUE, mode);
 
-      final LocatedBlock lastlb;
-      final boolean isComplete;
+      //final LocatedBlock lastlb;
+      //final boolean isComplete;
       if (!inSnapshot) {
         final BlockInfo last = blocks[blocks.length - 1];
-        final long lastPos = last.isComplete()?
-            fileSizeExcludeBlocksUnderConstruction - last.getNumBytes()
-            : fileSizeExcludeBlocksUnderConstruction;
-        lastlb = createLocatedBlock(locatedBlocks, last, lastPos, mode);
-        isComplete = last.isComplete();
+        final long lastPos = last.isComplete()
+          ? fileSizeExcludeBlocksUnderConstruction - last.getNumBytes()
+          : fileSizeExcludeBlocksUnderConstruction;
+        locatedBlocks
+          .lastBlock(createLocatedBlock(locatedBlocks, last, lastPos, mode))
+          .lastComplete(last.isComplete());
+        //lastlb = createLocatedBlock(locatedBlocks, last, lastPos, mode);
+        //isComplete = last.isComplete();
       } else {
-        lastlb = createLocatedBlock(locatedBlocks, blocks,
-            fileSizeExcludeBlocksUnderConstruction, mode);
-        isComplete = true;
+        locatedBlocks
+          .lastBlock(createLocatedBlock(locatedBlocks, blocks,
+            fileSizeExcludeBlocksUnderConstruction, mode))
+          .lastComplete(true);
+        //lastlb = createLocatedBlock(locatedBlocks, blocks,
+        //    fileSizeExcludeBlocksUnderConstruction, mode);
+        //isComplete = true;
       }
-      return locatedBlocks.fileLength(fileSizeExcludeBlocksUnderConstruction)
-        .lastUC(isFileUnderConstruction)
-        .lastBlock(lastlb)
-        .lastComplete(isComplete)
-        .encryption(feInfo)
-        .build();
+      return locatedBlocks.build();
       //return new LocatedBlocks(
       //    fileSizeExcludeBlocksUnderConstruction, isFileUnderConstruction,
       //    locatedblocks, lastlb, isComplete, feInfo);

@@ -82,6 +82,9 @@ class LocatedBlockBuilder {
     feInfo = fileEncryptionInfo;
     return this;
   }
+  LocatedBlocks build(DatanodeDescriptor client) {
+    return build();
+  }
   LocatedBlocks build() {
     return new LocatedBlocks(flen, isUC, blocks, last, lastComplete, feInfo);
   }
