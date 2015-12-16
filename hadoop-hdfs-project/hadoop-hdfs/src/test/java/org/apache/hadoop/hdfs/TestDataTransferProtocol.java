@@ -26,6 +26,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
@@ -57,8 +59,10 @@ import org.apache.hadoop.hdfs.protocol.datatransfer.Sender;
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos;
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.BlockOpResponseProto;
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.BlockOpResponseProto.Builder;
+import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.OpReadBlockProto;
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.ReadOpChecksumInfoProto;
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.Status;
+import org.apache.hadoop.hdfs.protocolPB.PBHelperClient;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenSecretManager;
 import org.apache.hadoop.hdfs.server.common.TextFileRegionFormat.ReaderOptions;
 import org.apache.hadoop.hdfs.server.datanode.CachingStrategy;
@@ -81,6 +85,13 @@ public class TestDataTransferProtocol {
 
   private static final DataChecksum DEFAULT_CHECKSUM =
     DataChecksum.newDataChecksum(DataChecksum.Type.CRC32C, 512);
+  
+  private static final DataChecksum NULL_CHECKSUM =
+      DataChecksum.newDataChecksum(DataChecksum.Type.NULL, 512);
+
+  
+  public static final String PROVIDER_CLASS = "hdfs.namenode.block.provider.class";
+  public static final String STORAGE_ID = "hdfs.namenode.block.provider.id";
   
   DatanodeID datanode;
   InetSocketAddress dnAddr;
@@ -133,7 +144,7 @@ public class TestDataTransferProtocol {
         }
         throw eof;
       }
-
+      
       String received = StringUtils.byteToHexString(retBuf);
       String expected = StringUtils.byteToHexString(recvBuf.toByteArray());
       LOG.info("Received: " + received);
@@ -221,12 +232,15 @@ public class TestDataTransferProtocol {
     int oneMil = 1024*1024;
     Path file = new Path("dataprotocol.dat");
     int numDataNodes = 1;
+    String blkFilename = "/home/virajith/blockid_map.txt";
     
     Configuration conf = new HdfsConfiguration();
     conf.setInt(DFSConfigKeys.DFS_REPLICATION_KEY, numDataNodes); 
     conf.setBoolean(DFSConfigKeys.DFS_DATANODE_PROVIDED, true);
-    conf.set(ReaderOptions.FILEPATH, "file:///home/virajith/blockid_map.txt");
+    conf.set(ReaderOptions.FILEPATH, "file://" + blkFilename);
     conf.set(ReaderOptions.DELIMITER, ",");
+    //conf.set(PROVIDER_CLASS, "org.apache.hadoop.hdfs.server.namenode.BlockFormatProvider");
+    conf.set(STORAGE_ID, DFSConfigKeys.DFS_NAMENODE_PROVIDED_STORAGEUUID);
     
     MiniDFSCluster cluster = new MiniDFSCluster.Builder(conf).numDataNodes(numDataNodes).build();
     try {
@@ -248,6 +262,23 @@ public class TestDataTransferProtocol {
       int fileLen = 10;
       sendBuf.reset();
       recvBuf.reset();
+      
+      FileInputStream fis = new FileInputStream(new File(blkFilename));
+      byte[] dataToRead = new byte[fileLen];
+      fis.read(dataToRead, 0, fileLen);
+      fis.close();
+      
+      BlockOpResponseProto.newBuilder()
+      .setStatus(Status.SUCCESS)
+      .setReadOpChecksumInfo(ReadOpChecksumInfoProto.newBuilder()
+          .setChecksum(DataTransferProtoUtil.toProto(NULL_CHECKSUM))
+          .setChunkOffset(0L)).setFirstBadLink("")
+      .setMessage(new String(dataToRead))
+      .build()
+      .writeTo(recvOut);
+
+      //sendResponse(Status.SUCCESS, "", new String(dataToRead), recvOut);
+      
       sender.readBlock(blk, BlockTokenSecretManager.DUMMY_TOKEN, "cl",
           0L, fileLen, true, CachingStrategy.newDefaultStrategy());
       sendRecvData("Data received", false); 
@@ -260,7 +291,6 @@ public class TestDataTransferProtocol {
       }
       
       sendBuf.reset();
-      recvBuf.reset();
       sender.readBlock(blk, BlockTokenSecretManager.DUMMY_TOKEN, "cl",
           0L, fileLen, true, CachingStrategy.newDefaultStrategy());
       sendRecvData("Data received", false); 
