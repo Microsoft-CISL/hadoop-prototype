@@ -35,6 +35,8 @@ import org.apache.hadoop.hdfs.server.protocol.DatanodeStorage;
 import org.apache.hadoop.hdfs.server.protocol.DatanodeStorage.State;
 import org.apache.hadoop.hdfs.util.RwLock;
 import org.apache.hadoop.util.ReflectionUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,7 +45,7 @@ import com.google.protobuf.ByteString;
 
 public class ProvidedStorageMap {
 
-  private static Logger LOG = LoggerFactory.getLogger(ProvidedStorageMap.class);
+  private static final Logger LOG = LoggerFactory.getLogger(ProvidedStorageMap.class);
 
   public static final String FMT = "hdfs.namenode.block.provider.class";
   public static final String STORAGE_ID = "hdfs.namenode.block.provider.id";
@@ -76,6 +78,7 @@ public class ProvidedStorageMap {
       conf.getClass(FMT, BlockProvider.class, BlockProvider.class);
     p = ReflectionUtils.newInstance(fmt, conf);
     p.init(lock, bm, storage);
+    LOG.info("Loaded block provider class: " + p.getClass() + " storage: " + storage);
   }
 
   // TODO: need to capture DN registration w/ storage
@@ -333,6 +336,7 @@ public class ProvidedStorageMap {
       public Boolean call() throws IOException {
         lock.writeLock();
         try {
+          LOG.info("Calling process first blk report from storage: " + storage);
           // first pass; periodic refresh should call bm.processReport
           bm.processFirstBlockReport(storage, new ProvidedBlockList(iterator()));
           return true;

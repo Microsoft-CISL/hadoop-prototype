@@ -2142,14 +2142,15 @@ public class BlockManager implements BlockStatsMXBean {
     assert (namesystem.hasWriteLock());
     assert (storageInfo.getBlockReportCount() == 0);
 
+    LOG.info("processFirstBlockReport for report " + report.getNumberOfBlocks());
     for (BlockReportReplica iblk : report) {
       ReplicaState reportedState = iblk.getState();
 
-      if (LOG.isDebugEnabled()) {
+      //if (LOG.isDebugEnabled()) {
         LOG.debug("Initial report of block " + iblk.getBlockName()
             + " on " + storageInfo.getDatanodeDescriptor() + " size " +
             iblk.getNumBytes() + " replicaState = " + reportedState);
-      }
+      //}
       if (shouldPostponeBlocksFromFuture &&
           namesystem.isGenStampInFuture(iblk)) {
         queueReportedBlock(storageInfo, iblk, reportedState,
@@ -2204,6 +2205,7 @@ public class BlockManager implements BlockStatsMXBean {
       }      
       //add replica if appropriate
       if (reportedState == ReplicaState.FINALIZED) {
+        LOG.info("Adding finalized replica for blk " + storedBlock);
         addStoredBlockImmediate(storedBlock, storageInfo);
       }
     }
