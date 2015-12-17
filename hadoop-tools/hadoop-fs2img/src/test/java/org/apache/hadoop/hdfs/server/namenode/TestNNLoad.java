@@ -1,34 +1,24 @@
 package org.apache.hadoop.hdfs.server.namenode;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Random;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.fs.FileUtil;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.HdfsConfiguration;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.hdfs.server.blockmanagement.ProvidedStorageMap.BlockProvider;
 import org.apache.hadoop.hdfs.server.common.TextFileRegionFormat;
 import org.apache.hadoop.hdfs.server.common.TextFileRegionFormat.ReaderOptions;
-import org.apache.hadoop.hdfs.server.namenode.ImageWriter;
-import org.apache.hadoop.hdfs.server.namenode.FixedBlockResolver;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_NAME_DIR_KEY;
 
 import org.junit.After;
@@ -36,7 +26,6 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
-
 import static org.junit.Assert.*;
 
 public class TestNNLoad {
@@ -145,8 +134,6 @@ public class TestNNLoad {
   static Path removePrefix(Path base, Path walk) throws Exception {
     Path wpath = new Path(walk.toUri().getPath());
     Path bpath = new Path(base.toUri().getPath());
-    System.out.println("W: " + wpath);
-    System.out.println("B: " + bpath);
     Path ret = new Path("/");
     while (!(bpath.equals(wpath) || "".equals(wpath.getName()))) {
       ret = "".equals(ret.getName())
@@ -154,7 +141,6 @@ public class TestNNLoad {
         : new Path(new Path("/", wpath.getName()),
                    new Path(ret.toString().substring(1)));
       wpath = wpath.getParent();
-      System.out.println("R: " + ret);
     }
     if (!bpath.equals(wpath)) {
       throw new Exception(base + " not a prefix of " + walk);
