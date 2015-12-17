@@ -53,8 +53,6 @@ import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.annotations.VisibleForTesting;
-
 /**
  * This class extends the DatanodeInfo class with ephemeral information (eg
  * health, capacity, what blocks are associated with the Datanode) that is
@@ -336,6 +334,12 @@ public class DatanodeDescriptor extends DatanodeInfo {
       while (iter.hasNext()) {
         Map.Entry<String, DatanodeStorageInfo> entry = iter.next();
         DatanodeStorageInfo storageInfo = entry.getValue();
+        if (StorageType.PROVIDED.equals(storageInfo.getStorageType())) {
+          // to verify provided storage participated in this hb, requires
+          // check to pass DNDesc.
+          // e.g., storageInfo.verifyBlockReportId(this, curBlockReportId)
+          continue;
+        }
         if (storageInfo.getLastBlockReportId() != curBlockReportId) {
           LOG.info("{} had lastBlockReportId 0x{} but curBlockReportId = 0x{}",
               storageInfo.getStorageID(),

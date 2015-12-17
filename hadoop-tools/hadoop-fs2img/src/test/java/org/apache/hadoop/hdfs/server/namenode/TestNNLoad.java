@@ -131,7 +131,7 @@ public class TestNNLoad {
     startCluster(NAMEPATH, 1);
   }
 
-  static Path removePrefix(Path base, Path walk) throws Exception {
+  static Path removePrefix(Path base, Path walk) {
     Path wpath = new Path(walk.toUri().getPath());
     Path bpath = new Path(base.toUri().getPath());
     Path ret = new Path("/");
@@ -143,7 +143,7 @@ public class TestNNLoad {
       wpath = wpath.getParent();
     }
     if (!bpath.equals(wpath)) {
-      throw new Exception(base + " not a prefix of " + walk);
+      throw new IllegalArgumentException(base + " not a prefix of " + walk);
     }
     return ret;
   }

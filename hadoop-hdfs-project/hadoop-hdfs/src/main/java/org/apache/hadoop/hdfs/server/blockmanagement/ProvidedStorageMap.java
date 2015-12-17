@@ -1,32 +1,19 @@
 package org.apache.hadoop.hdfs.server.blockmanagement;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.NavigableMap;
-import java.util.NavigableSet;
-import java.util.Random;
-import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.ConcurrentSkipListSet;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
-import java.util.concurrent.FutureTask;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.BlockListAsLongs;
 import org.apache.hadoop.hdfs.protocol.DatanodeID;
-import org.apache.hadoop.hdfs.protocol.DatanodeInfo;
 import org.apache.hadoop.hdfs.protocol.DatanodeInfoWithStorage;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.protocol.LocatedBlock;
@@ -35,8 +22,6 @@ import org.apache.hadoop.hdfs.server.protocol.DatanodeStorage;
 import org.apache.hadoop.hdfs.server.protocol.DatanodeStorage.State;
 import org.apache.hadoop.hdfs.util.RwLock;
 import org.apache.hadoop.util.ReflectionUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -91,7 +76,7 @@ public class ProvidedStorageMap {
         // poll service, initiate 
         p.start();
         dn.injectStorage(storage);
-        return dns.getStorage(dn, s);
+        return dns.getProvidedStorage(dn, s);
       }
       LOG.warn("Reserved storage {} reported as non-provided from {}", s, dn);
     }
@@ -200,8 +185,10 @@ public class ProvidedStorageMap {
 
     // TODO: examine BM::getBlocksWithLocations (used by rebalancer?)
 
-    DatanodeStorageInfo getStorage(DatanodeDescriptor dn, DatanodeStorage s) {
+    DatanodeStorageInfo getProvidedStorage(
+        DatanodeDescriptor dn, DatanodeStorage s) {
       dns.put(dn.getDatanodeUuid(), dn);
+      // TODO: maintain separate RPC ident per dn
       return storageMap.get(s.getStorageID());
     }
 

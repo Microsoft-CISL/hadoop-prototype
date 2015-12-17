@@ -1880,15 +1880,18 @@ public class BlockManager implements BlockStatsMXBean {
         }
       }
 
-      if (storageInfo.getBlockReportCount() == 0) {
-        // The first block report can be processed a lot more efficiently than
-        // ordinary block reports.  This shortens restart times.
-        LOG.info("Processing first storage report for " +
-            storageInfo.getStorageID() + " from datanode " +
-            nodeID.getDatanodeUuid());
-        processFirstBlockReport(storageInfo, newReport);
-      } else {
-        invalidatedBlocks = processReport(storageInfo, newReport);
+      // Block reports for provided storage are not maintained by DN heartbeats
+      if (StorageType.PROVIDED.equals(storageInfo.getStorageType())) {
+        if (storageInfo.getBlockReportCount() == 0) {
+          // The first block report can be processed a lot more efficiently than
+          // ordinary block reports.  This shortens restart times.
+          LOG.info("Processing first storage report for " +
+              storageInfo.getStorageID() + " from datanode " +
+              nodeID.getDatanodeUuid());
+          processFirstBlockReport(storageInfo, newReport);
+        } else {
+          invalidatedBlocks = processReport(storageInfo, newReport);
+        }
       }
       
       storageInfo.receivedBlockReport();
