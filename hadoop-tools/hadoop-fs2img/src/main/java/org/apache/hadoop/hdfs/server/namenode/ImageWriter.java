@@ -316,7 +316,7 @@ public class ImageWriter implements Closeable {
       .setGenstampV1Limit(0)
       .setGenstampV2(1001)
       .setLastAllocatedBlockId(blockIds.lastId())
-      .setTransactionId(1);
+      .setTransactionId(0);
     NameSystemSection s = b.build();
 
     OutputStream sec = beginSection(raw);
