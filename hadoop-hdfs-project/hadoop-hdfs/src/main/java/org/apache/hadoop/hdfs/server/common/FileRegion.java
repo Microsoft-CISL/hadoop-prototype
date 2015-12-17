@@ -2,7 +2,6 @@ package org.apache.hadoop.hdfs.server.common;
 
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.protocol.Block;
-import static org.apache.hadoop.hdfs.protocol.HdfsConstants.GRANDFATHER_GENERATION_STAMP;
 
 public class FileRegion implements BlockAlias {
 
@@ -21,7 +20,7 @@ public class FileRegion implements BlockAlias {
   @Override
   public Block getBlock() {
     // TODO: use appropriate generation stamp
-    return new Block(blockId, length, GRANDFATHER_GENERATION_STAMP);
+    return new Block(blockId, length, 1001);
   }
 
   @Override

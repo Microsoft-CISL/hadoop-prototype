@@ -460,6 +460,9 @@ public class DatanodeDescriptor extends DatanodeInfo {
     this.volumeFailures = volFailures;
     this.volumeFailureSummary = volumeFailureSummary;
     for (StorageReport report : reports) {
+      if (StorageType.PROVIDED.equals(report.getStorage().getStorageType())) {
+        continue;
+      }
       DatanodeStorageInfo storage = updateStorage(report.getStorage());
       if (checkFailedStorages) {
         failedStorageInfos.remove(storage);
@@ -875,6 +878,17 @@ public class DatanodeDescriptor extends DatanodeInfo {
         storageMap.put(storage.getStorageID(), storage);
       }
       return storage;
+    }
+  }
+
+  void injectStorage(DatanodeStorageInfo s) {
+    synchronized (storageMap) {
+      DatanodeStorageInfo storage = storageMap.get(s.getStorageID());
+      if (null == storage) {
+        storageMap.put(s.getStorageID(), s);
+      } else {
+        assert storage == s : "found " + storage + " expected " + s;
+      }
     }
   }
 

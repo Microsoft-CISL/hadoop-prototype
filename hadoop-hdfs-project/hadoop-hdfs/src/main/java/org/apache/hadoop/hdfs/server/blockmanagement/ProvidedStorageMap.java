@@ -54,7 +54,7 @@ public class ProvidedStorageMap {
   private final BlockProvider p;
   private final String storageId;
   private final ProvidedDescriptor dns;
-  private volatile DatanodeStorageInfo storage;
+  private final DatanodeStorageInfo storage;
 
   ProvidedStorageMap(RwLock lock, BlockManager bm, Configuration conf)
       throws IOException {
@@ -84,11 +84,13 @@ public class ProvidedStorageMap {
   // TODO: need to capture DN registration w/ storage
   //       possibly snare from getStorage
 
-  DatanodeStorageInfo getStorage(DatanodeDescriptor dn, DatanodeStorage s) {
+  DatanodeStorageInfo getStorage(DatanodeDescriptor dn, DatanodeStorage s)
+      throws IOException {
     if (storageId != null && storageId.equals(s.getStorageID())) {
       if (StorageType.PROVIDED.equals(s.getStorageType())) {
         // poll service, initiate 
         p.start();
+        dn.injectStorage(storage);
         return dns.getStorage(dn, s);
       }
       LOG.warn("Reserved storage {} reported as non-provided from {}", s, dn);
@@ -296,60 +298,35 @@ public class ProvidedStorageMap {
     BlockManager bm;
     DatanodeStorageInfo storage;
     // XXX need to respect DN lifecycle, proper concurrency
-    AtomicBoolean hasDNs = new AtomicBoolean(false);
+    boolean hasDNs = false;
 
     void init(RwLock lock, BlockManager bm, DatanodeStorageInfo storage) {
       this.bm = bm;
       this.lock = lock;
       this.storage = storage;
-      // set ThreadFactory to return daemon thread
-      exec = Executors.newSingleThreadExecutor();
     }
 
-    void start() {
-      if (!hasDNs.compareAndSet(false, true)) {
-        // use only one thread (hack)
+    void start() throws IOException {
+      assert lock.hasWriteLock() : "Not holding write lock";
+      if (hasDNs) {
         return;
       }
+      LOG.info("Calling process first blk report from storage: " + storage);
+      // first pass; periodic refresh should call bm.processReport
+      bm.processFirstBlockReport(storage, new ProvidedBlockList(iterator()));
+      hasDNs = true;
+
       // create background thread to read from fmt
       // forall blocks
       //   batch ProvidedBlockList from BlockProvider
       //   report BM::processFirstBlockReport
       //   subsequently report BM::processReport
-      FutureTask<Boolean> t = new FutureTask<>(new RefreshBlocks());
-      exec.execute(t);
-      LOG.info("DEBUG DN loading storage: " + storage.getStorageID());
-      try {
-        boolean result = t.get();
-        LOG.info("Returned " + result);
-      } catch (ExecutionException e) {
-        throw new RuntimeException("Load failed", e.getCause());
-      } catch (InterruptedException e) {
-        throw new RuntimeException("Load interrupted", e);
-      }
-      // TODO: report the result at some point
-    }
-
-    class RefreshBlocks implements Callable<Boolean> {
-
-      @Override
-      public Boolean call() throws IOException {
-        lock.writeLock();
-        try {
-          LOG.info("Calling process first blk report from storage: " + storage);
-          // first pass; periodic refresh should call bm.processReport
-          bm.processFirstBlockReport(storage, new ProvidedBlockList(iterator()));
-          return true;
-        } finally {
-          lock.writeUnlock();
-        }
-      }
-
     }
 
     @Override
     public Iterator<Block> iterator() {
       // default to empty storage
+      assert false : "Should be overridden";
       return Collections.emptyListIterator();
     }
 

@@ -12,14 +12,11 @@ import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.HdfsConfiguration;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
-import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.server.blockmanagement.ProvidedStorageMap.BlockProvider;
 import org.apache.hadoop.hdfs.server.common.TextFileRegionFormat;
 import org.apache.hadoop.hdfs.server.common.TextFileRegionFormat.ReaderOptions;
 import org.apache.hadoop.hdfs.server.namenode.ImageWriter;
 import org.apache.hadoop.hdfs.server.namenode.FixedBlockResolver;
-import org.apache.hadoop.util.ReflectionUtils;
-
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_NAME_DIR_KEY;
 
 import org.junit.After;
@@ -27,7 +24,6 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
-import org.mortbay.log.Log;
 
 import static org.junit.Assert.*;
 
@@ -45,7 +41,7 @@ public class TestNNLoad {
 
   Configuration conf;
   MiniDFSCluster cluster;
-  public static final String PROVIDER_CLASS = "hdfs.namenode.block.provider.class";
+  public static final String PROVIDER = "hdfs.namenode.block.provider.class";
   public static final String STORAGE_ID = "hdfs.namenode.block.provider.id";
 
   @Before
@@ -60,10 +56,10 @@ public class TestNNLoad {
     conf.set(SingleUGIResolver.USER, SINGLEUSER);
     conf.set(SingleUGIResolver.GROUP, SINGLEGROUP);
     conf.set(TextFileRegionFormat.WriterOptions.FILEPATH, BLOCKFILE.toString());
-    conf.set(PROVIDER_CLASS, "org.apache.hadoop.hdfs.server.namenode.BlockFormatProvider");
+    conf.setClass(PROVIDER, BlockFormatProvider.class, BlockProvider.class);
     conf.set(STORAGE_ID, DFSConfigKeys.DFS_NAMENODE_PROVIDED_STORAGEUUID);
     conf.setBoolean(DFSConfigKeys.DFS_DATANODE_PROVIDED, true);
-    conf.set(ReaderOptions.FILEPATH, "file:///home/virajith/blockid_map.txt");
+    conf.set(ReaderOptions.FILEPATH, BLOCKFILE.toString());
     conf.set(ReaderOptions.DELIMITER, ",");
   }
 
@@ -128,24 +124,10 @@ public class TestNNLoad {
     }
   }
 
-  @Test
+  @Test(timeout=30000)
   public void testBlockLoad() throws Exception {
-    final long seed = r.nextLong();
-    createImage(new RandomTreeWalk(seed), NAMEPATH);
+    createImage(new FSTreeWalk(NAMEPATH, conf), NAMEPATH);
     startCluster(NAMEPATH, 1);
-    
   }
 
-  @Test
-  public void testBlockFormatProvider() throws Exception {
-    
-    conf.set(ReaderOptions.FILEPATH, "file:///home/virajith/blockid_map.txt");
-    Log.info("Running testBlockFormatProvider");
-    BlockFormatProvider provider = ReflectionUtils.newInstance(BlockFormatProvider.class, conf);
-    int count = 1;
-    for (Block blk: provider) {
-      assertEquals(blk.getBlockId(), count);
-      count++;
-    }
-  }
 }
