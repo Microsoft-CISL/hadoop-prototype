@@ -2,9 +2,14 @@ package org.apache.hadoop.hdfs.server.namenode;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
+import java.nio.channels.ReadableByteChannel;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
@@ -137,41 +142,70 @@ public class TestNNLoad {
     startCluster(NAMEPATH, 1);
   }
 
-  @Test
+  static Path removePrefix(Path base, Path walk) throws Exception {
+    Path wpath = new Path(walk.toUri().getPath());
+    Path bpath = new Path(base.toUri().getPath());
+    System.out.println("W: " + wpath);
+    System.out.println("B: " + bpath);
+    Path ret = new Path("/");
+    while (!(bpath.equals(wpath) || "".equals(wpath.getName()))) {
+      ret = "".equals(ret.getName())
+        ? new Path("/", wpath.getName())
+        : new Path(new Path("/", wpath.getName()),
+                   new Path(ret.toString().substring(1)));
+      wpath = wpath.getParent();
+      System.out.println("R: " + ret);
+    }
+    if (!bpath.equals(wpath)) {
+      throw new Exception(base + " not a prefix of " + walk);
+    }
+    return ret;
+  }
+
+  @Test(timeout=30000)
   public void testBlockRead() throws Exception {
-    // TODO: make this into a test
     createImage(new FSTreeWalk(NAMEPATH, conf), NAMEPATH);
     startCluster(NAMEPATH, 1);
     FileSystem fs = cluster.getFileSystem();
-    List<Path> l = new LinkedList<>();
-    l.add(new Path("/"));
-    while (!l.isEmpty()) {
-      Path p = l.remove(0);
-      System.out.println("PATH: " + p);
-      for (FileStatus f : fs.listStatus(p)) {
-        if (p.equals(f.getPath())) {
-          continue;
-        }
-        if ("VERSION".equals(f.getPath().getName())) {
-          for (BlockLocation b : fs.getFileBlockLocations(f, 0, f.getLen())) {
-            System.out.println("VERSION BLOCK: " + b);
-          }
-          try (BufferedReader i = new BufferedReader(
-                new InputStreamReader(fs.open(f.getPath())))) {
-            String s;
-            while (null != (s = i.readLine())) {
-              System.out.println(s);
-            }
-          }
-          Thread.sleep(1000);
-          for (BlockLocation b : fs.getFileBlockLocations(f, 0, f.getLen())) {
-            for (StorageType t : b.getStorageTypes()) {
-              System.out.println("VERSION BLOCK: " + b + " type: " + t);
-            }
-          }
 
+    // read NN metadata, verify contents match
+    // TODO NN could write, should find something else to validate
+    for (TreePath e : new FSTreeWalk(NAMEPATH, conf)) {
+      FileStatus rs = e.getFileStatus();
+      Path hp = removePrefix(NAMEPATH, rs.getPath());
+      assertTrue(fs.exists(hp));
+      FileStatus hs = fs.getFileStatus(hp);
+      assertEquals(hp.toUri().getPath(), hs.getPath().toUri().getPath());
+      assertEquals(rs.getPermission(), hs.getPermission());
+      assertEquals(SINGLEUSER, hs.getOwner());
+      assertEquals(SINGLEGROUP, hs.getGroup());
+      if (rs.isFile()) {
+        assertEquals(rs.getLen(), hs.getLen());
+        try (ReadableByteChannel i = Channels.newChannel(
+              new FileInputStream(rs.getPath().toUri().toString()))) {
+          try (ReadableByteChannel j = Channels.newChannel(
+                fs.open(hs.getPath()))) {
+            ByteBuffer ib = ByteBuffer.allocate(4096);
+            ByteBuffer jb = ByteBuffer.allocate(4096);
+            while (true) {
+              int il = i.read(ib);
+              int jl = j.read(jb);
+              if (il < 0 || jl < 0) {
+                assertEquals(il, jl);
+                break;
+              }
+              ib.flip();
+              jb.flip();
+              int cmp = Math.min(ib.remaining(), jb.remaining());
+              for (int k = 0; k < cmp; ++k) {
+                assertEquals(ib.get(), jb.get());
+              }
+              ib.compact();
+              jb.compact();
+            }
+
+          }
         }
-        l.add(0, f.getPath());
       }
     }
   }
