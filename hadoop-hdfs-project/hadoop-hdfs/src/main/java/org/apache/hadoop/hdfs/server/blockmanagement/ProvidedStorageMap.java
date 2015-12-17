@@ -122,14 +122,14 @@ public class ProvidedStorageMap {
       String[] sids = new String[storages.length];
       StorageType[] types = new StorageType[storages.length];
       for (int i = 0; i < storages.length; ++i) {
+        sids[i] = storages[i].getStorageID();
+        types[i] = storages[i].getStorageType();
         if (StorageType.PROVIDED.equals(storages[i].getStorageType())) {
           locs[i] = pending;
         } else {
           locs[i] = new DatanodeInfoWithStorage(
               storages[i].getDatanodeDescriptor(), sids[i], types[i]);
         }
-        sids[i] = storages[i].getStorageID();
-        types[i] = storages[i].getStorageType();
       }
       return new LocatedBlock(eb, locs, sids, types, pos, isCorrupt, null);
     }
@@ -164,6 +164,7 @@ public class ProvidedStorageMap {
     }
     void replaceInternal(DatanodeDescriptor dn) {
       updateRegInfo(dn); // overwrite DatanodeID (except UUID)
+      setDatanodeUuid(dn.getDatanodeUuid());
       setCapacity(dn.getCapacity());
       setDfsUsed(dn.getDfsUsed());
       setRemaining(dn.getRemaining());

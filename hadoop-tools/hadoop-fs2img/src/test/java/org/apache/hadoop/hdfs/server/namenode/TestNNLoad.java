@@ -1,13 +1,20 @@
 package org.apache.hadoop.hdfs.server.namenode;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Random;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.HdfsConfiguration;
@@ -124,10 +131,49 @@ public class TestNNLoad {
     }
   }
 
-  @Test(timeout=30000)
+  @Test(timeout=20000)
   public void testBlockLoad() throws Exception {
     createImage(new FSTreeWalk(NAMEPATH, conf), NAMEPATH);
     startCluster(NAMEPATH, 1);
+  }
+
+  @Test
+  public void testBlockRead() throws Exception {
+    // TODO: make this into a test
+    createImage(new FSTreeWalk(NAMEPATH, conf), NAMEPATH);
+    startCluster(NAMEPATH, 1);
+    FileSystem fs = cluster.getFileSystem();
+    List<Path> l = new LinkedList<>();
+    l.add(new Path("/"));
+    while (!l.isEmpty()) {
+      Path p = l.remove(0);
+      System.out.println("PATH: " + p);
+      for (FileStatus f : fs.listStatus(p)) {
+        if (p.equals(f.getPath())) {
+          continue;
+        }
+        if ("VERSION".equals(f.getPath().getName())) {
+          for (BlockLocation b : fs.getFileBlockLocations(f, 0, f.getLen())) {
+            System.out.println("VERSION BLOCK: " + b);
+          }
+          try (BufferedReader i = new BufferedReader(
+                new InputStreamReader(fs.open(f.getPath())))) {
+            String s;
+            while (null != (s = i.readLine())) {
+              System.out.println(s);
+            }
+          }
+          Thread.sleep(1000);
+          for (BlockLocation b : fs.getFileBlockLocations(f, 0, f.getLen())) {
+            for (StorageType t : b.getStorageTypes()) {
+              System.out.println("VERSION BLOCK: " + b + " type: " + t);
+            }
+          }
+
+        }
+        l.add(0, f.getPath());
+      }
+    }
   }
 
 }

@@ -52,7 +52,7 @@ public class ProvidedBlockManager {
     while(iter.hasNext()) {
       FileRegion region = iter.next();
       ReplicaInfo info = new ProvidedReplica(region.getBlock().getBlockId(), region.getPath().toUri(), 
-          region.getOffset(), region.getBlock().getNumBytes(), 0, providedVolume, conf); 
+          region.getOffset(), region.getBlock().getNumBytes(), 1001, providedVolume, conf);
       LOG.info("Adding block info " + info);
       replicaMap.add(blkPoolId, info);
     }

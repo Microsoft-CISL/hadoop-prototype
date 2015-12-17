@@ -85,10 +85,12 @@ public class LocatedBlock {
     this.b = b;
     this.offset = startOffset;
     this.corrupt = corrupt;
-    this.locs = locs;
+    this.locs = null == locs ? EMPTY_LOCS : locs;
     this.storageIDs = storageIDs;
     this.storageTypes = storageTypes;
-    this.cachedLocs = cachedLocs;
+    this.cachedLocs = null == cachedLocs || 0 == cachedLocs.length
+      ? EMPTY_LOCS
+      : cachedLocs;
   }
 
   private static DatanodeInfoWithStorage[] convert(
