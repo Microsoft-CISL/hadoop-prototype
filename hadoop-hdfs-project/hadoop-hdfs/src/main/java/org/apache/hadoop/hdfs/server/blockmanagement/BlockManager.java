@@ -1881,7 +1881,7 @@ public class BlockManager implements BlockStatsMXBean {
       }
 
       // Block reports for provided storage are not maintained by DN heartbeats
-      if (StorageType.PROVIDED.equals(storageInfo.getStorageType())) {
+      if (!StorageType.PROVIDED.equals(storageInfo.getStorageType())) {
         if (storageInfo.getBlockReportCount() == 0) {
           // The first block report can be processed a lot more efficiently than
           // ordinary block reports.  This shortens restart times.
