@@ -731,7 +731,23 @@ Release 2.8.0 - UNRELEASED
 
     HADOOP-8419. Fixed GzipCode NPE reset for IBM JDK. (Yu Li via eyang)
 
-  OPTIMIZATIONS
+    HADOOP-11149. TestZKFailoverController times out. (Steve Loughran
+    via ozawa)
+
+    HADOOP-9822. Create constant MAX_CAPACITY in RetryCache rather than
+    hard-coding 16 in RetryCache constructor. (Tsuyoshi Ozawa via wheat9)
+
+    HADOOP-11954. Solaris does not support RLIMIT_MEMLOCK as in Linux
+    (Alan Burlison via aw)
+
+    HADOOP-12598. Add XML namespace declarations for some hadoop/tools modules.
+    (Xin Wang via aajisaka)
+
+    HADOOP-12468. Partial group resolution failure should not result in user
+    lockout. (Wei-Chiu Chuang via Yongjun Zhang)
+
+    HADOOP-12656. MiniKdc throws "address in use" BindException.
+    (Wei-Chiu Chuang via Arpit Agarwal)
 
     HADOOP-12051. ProtobufRpcEngine.invoke() should use Exception.toString()
     over getMessage() in logging/span events. (Varun Saxena via stevel)
@@ -841,6 +857,15 @@ Release 2.8.0 - UNRELEASED
 
     HADOOP-12313. NPE in JvmPauseMonitor when calling stop() before start().
     (Gabor Liptak via wheat9)
+
+    HADOOP-12609. Fix intermittent failure of TestDecayRpcScheduler.
+    (Masatake Iwasaki via Arpit Agarwal)
+
+    HADOOP-10729. Add tests for PB RPC in case version mismatch of client and
+    server. (Junping Du via wheat9)
+
+    HADOOP-12636. Prevent ServiceLoader failure init for unused FileSystems.
+    (Inigo Goiri via cdouglas)
 
 Release 2.7.3 - UNRELEASED
 
