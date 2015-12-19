@@ -96,14 +96,15 @@ public class FileSystemImage implements Tool {
           throw new UnsupportedOperationException("Internal error");
       }
     }
- 
-    if (argv.length < 1) {
+
+    String[] rem = cmd.args();
+    if (remaining.length != 1) {
       printUsage();
       return -1;
     }
 
     try (ImageWriter w = new ImageWriter(opts)) {
-      for (TreePath e : new FSTreeWalk(new Path(argv[argv.length -1]), getConf())) {
+      for (TreePath e : new FSTreeWalk(new Path(argv[rem]), getConf())) {
         w.accept(e); // add and continue
       }
     }
