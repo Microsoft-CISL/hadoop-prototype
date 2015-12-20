@@ -102,6 +102,7 @@ public class TextFileRegionFormat
   }
 
   @VisibleForTesting
+  // TODO move test to same package, reduce visibility
   public TextWriter createWriter(Path file, CompressionCodec codec, String delim,
       Configuration conf) throws IOException {
     FileSystem fs = file.getFileSystem(conf);
@@ -159,7 +160,7 @@ public class TextFileRegionFormat
     private Configuration conf;
     protected String codec = null;
     protected Path file = new Path(new File(DEFNAME).toURI().toString());
-    public String delim = DELIMITER;
+    protected String delim = TextFileRegionFormat.DELIMITER;
 
     @Override
     public void setConf(Configuration conf) {
@@ -184,7 +185,7 @@ public class TextFileRegionFormat
     public String getCodec() {
       return codec;
     }
-    
+
     public Path getFile() {
       return file;
     }
@@ -348,6 +349,16 @@ public class TextFileRegionFormat
 
   public static class TextWriter extends Writer<FileRegion> {
 
+    public interface Options extends Writer.Options {
+      Options codec(String codec);
+      Options filename(Path file);
+      Options delimiter(String delim);
+    }
+
+    public static WriterOptions defaults() {
+      return new WriterOptions();
+    }
+
     final String delim;
     final java.io.Writer out;
 
@@ -367,16 +378,6 @@ public class TextFileRegionFormat
     @Override
     public void close() throws IOException {
       out.close();
-    }
-
-    public static WriterOptions defaults() {
-      return new WriterOptions();
-    }
-
-    public interface Options extends Writer.Options {
-      Options codec(String codec);
-      Options filename(Path file);
-      Options delimiter(String delim);
     }
 
   }

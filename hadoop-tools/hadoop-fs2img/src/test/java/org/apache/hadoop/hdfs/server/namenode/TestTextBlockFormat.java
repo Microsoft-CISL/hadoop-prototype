@@ -19,6 +19,7 @@ import org.apache.hadoop.io.compress.CompressionCodec;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
+// TODO: move test to same package; reduce visibility appropriately
 public class TestTextBlockFormat {
 
   static final Path OUTFILE = new Path("yak://dingo:4344/bar/baz");

@@ -47,4 +47,16 @@ public class FileRegion implements BlockAlias {
   public long getOffset() {
     return offset;
   }
+
+  @Override
+  public String toString() {
+    StringBuilder sb = new StringBuilder();
+    sb.append("{ block=\"").append(getBlock()).append("\"");
+    sb.append(", path=\")").append(getPath()).append("\"");
+    sb.append(", off=\")").append(getOffset()).append("\"");
+    sb.append(", len=\")").append(getBlock().getNumBytes()).append("\"");
+    sb.append(" }");
+    return sb.toString();
+  }
+
 }
