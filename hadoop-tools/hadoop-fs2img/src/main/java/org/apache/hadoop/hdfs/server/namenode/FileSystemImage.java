@@ -97,14 +97,14 @@ public class FileSystemImage implements Tool {
       }
     }
 
-    String[] rem = cmd.args();
-    if (remaining.length != 1) {
+    String[] rem = cmd.getArgs();
+    if (rem.length != 1) {
       printUsage();
       return -1;
     }
 
     try (ImageWriter w = new ImageWriter(opts)) {
-      for (TreePath e : new FSTreeWalk(new Path(argv[rem]), getConf())) {
+      for (TreePath e : new FSTreeWalk(new Path(argv[rem.length]), getConf())) {
         w.accept(e); // add and continue
       }
     }
