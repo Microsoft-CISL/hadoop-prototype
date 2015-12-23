@@ -2682,7 +2682,17 @@ public class BlockManager implements BlockStatsMXBean {
       updateNeededReplications(storedBlock, curReplicaDelta, 0);
     }
     if (numCurrentReplica > fileReplication) {
-      processOverReplicatedBlock(storedBlock, fileReplication, node, delNodeHint);
+      boolean blockProvided = false;
+      int numStorages = 0;
+      for(DatanodeStorageInfo storage : blocksMap.getStorages(block, State.NORMAL)) {
+        numStorages++;
+        if(storage.getStorageType() == StorageType.PROVIDED)
+          blockProvided = true;
+      }
+      //count this as over replication iff, the block is provided, replicated locally (numStorages > 1) 
+      //and the number of local replicas (numCurrentReplica - 1 for the provided replica) is > file replication required  
+      if(numStorages > 1 && blockProvided && numCurrentReplica > fileReplication + 1)
+        processOverReplicatedBlock(storedBlock, fileReplication, node, delNodeHint);
     }
     // If the file replication has reached desired value
     // we can remove any corrupt replicas the block may have

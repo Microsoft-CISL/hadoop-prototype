@@ -133,6 +133,12 @@ public class DatanodeStorageInfo {
    * whenever a block report is received.
    */
   private boolean heartbeatedSinceFailover = false;
+  
+  //NOTE added this for provided storage (it is never failed over)
+  //TODO figure out a better way
+  void setHeartbeatedSinceFailover(boolean value) {
+    heartbeatedSinceFailover = value;
+  }
 
   /**
    * At startup or at failover, the storages in the cluster may have pending

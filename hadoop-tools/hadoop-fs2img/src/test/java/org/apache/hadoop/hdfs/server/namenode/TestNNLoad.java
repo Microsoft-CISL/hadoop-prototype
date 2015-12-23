@@ -9,6 +9,7 @@ import java.nio.channels.ReadableByteChannel;
 import java.util.Random;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FileUtil;
@@ -16,9 +17,12 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.HdfsConfiguration;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
+import org.apache.hadoop.hdfs.server.blockmanagement.BlockManager;
 import org.apache.hadoop.hdfs.server.blockmanagement.ProvidedStorageMap.BlockProvider;
 import org.apache.hadoop.hdfs.server.common.TextFileRegionFormat;
 import org.apache.hadoop.hdfs.server.common.TextFileRegionFormat.ReaderOptions;
+import org.apache.hadoop.hdfs.server.namenode.TreeWalk.TreeIterator;
+
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_NAME_DIR_KEY;
 
 import org.junit.After;
@@ -26,17 +30,22 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
+import org.mortbay.log.Log;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import static org.junit.Assert.*;
 
 public class TestNNLoad {
 
   @Rule public TestName name = new TestName();
+  public static final Logger LOG = LoggerFactory.getLogger(TestNNLoad.class);
 
   final Random r = new Random();
   final File fBASE = new File(MiniDFSCluster.getBaseDirectory());
   final Path BASE = new Path(fBASE.toURI().toString());
   final Path BLOCKFILE = new Path(BASE, "blocks.csv");
-  final Path NAMEPATH = new Path(BASE, "hdfs/name");
+  final Path NAMEPATH = new Path("file:///home/virajith/Desktop/protobuf/benchmarks");
   final String SINGLEUSER = "dingo";
   final String SINGLEGROUP = "yak";
 
@@ -148,17 +157,23 @@ public class TestNNLoad {
     return ret;
   }
 
-  @Test(timeout=30000)
+  @Test //(timeout=30000)
   public void testBlockRead() throws Exception {
     createImage(new FSTreeWalk(NAMEPATH, conf), NAMEPATH);
     startCluster(NAMEPATH, 1);
     FileSystem fs = cluster.getFileSystem();
-
+    Thread.sleep(2000);
+    int count = 0;
     // read NN metadata, verify contents match
     // TODO NN could write, should find something else to validate
     for (TreePath e : new FSTreeWalk(NAMEPATH, conf)) {
       FileStatus rs = e.getFileStatus();
       Path hp = removePrefix(NAMEPATH, rs.getPath());
+      LOG.info("hp " + hp.toUri().getPath());
+      //skip HDFS specific files, which may have been created later on.
+      if(hp.toString().contains("in_use.lock") || hp.toString().contains("current"))
+        continue;
+      e.accept(count++);
       assertTrue(fs.exists(hp));
       FileStatus hs = fs.getFileStatus(hp);
       assertEquals(hp.toUri().getPath(), hs.getPath().toUri().getPath());
@@ -168,7 +183,7 @@ public class TestNNLoad {
       if (rs.isFile()) {
         assertEquals(rs.getLen(), hs.getLen());
         try (ReadableByteChannel i = Channels.newChannel(
-              new FileInputStream(rs.getPath().toUri().toString()))) {
+              new FileInputStream(new File(rs.getPath().toUri())))) {
           try (ReadableByteChannel j = Channels.newChannel(
                 fs.open(hs.getPath()))) {
             ByteBuffer ib = ByteBuffer.allocate(4096);
