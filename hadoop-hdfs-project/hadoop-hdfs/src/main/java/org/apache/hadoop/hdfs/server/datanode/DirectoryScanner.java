@@ -813,8 +813,9 @@ public class DirectoryScanner implements Runnable {
         throttleTimer.start();
 
         try {
-          result.put(bpid,
-              compileReport(volume, bpFinalizedDir, bpFinalizedDir, report));
+          if (bpFinalizedDir != null)
+            result.put(bpid,
+                compileReport(volume, bpFinalizedDir, bpFinalizedDir, report));
         } catch (InterruptedException ex) {
           // Exit quickly and flag the scanner to do the same
           result = null;

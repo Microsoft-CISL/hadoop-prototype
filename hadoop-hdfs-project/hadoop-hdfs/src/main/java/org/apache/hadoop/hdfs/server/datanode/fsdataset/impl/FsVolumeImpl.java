@@ -593,13 +593,16 @@ public class FsVolumeImpl implements FsVolumeSpi {
     }
 
     private String getNextFinalizedDir() throws IOException {
+      if (bpidDir == null)
+        return null;
+      
       File dir = Paths.get(
           bpidDir.getAbsolutePath(), "current", "finalized").toFile();
       return getNextSubDir(state.curFinalizedDir, dir);
     }
 
     private String getNextFinalizedSubDir() throws IOException {
-      if (state.curFinalizedDir == null) {
+      if (state.curFinalizedDir == null || bpidDir == null) {
         return null;
       }
       File dir = Paths.get(
@@ -609,7 +612,7 @@ public class FsVolumeImpl implements FsVolumeSpi {
     }
 
     private List<String> getSubdirEntries() throws IOException {
-      if (state.curFinalizedSubDir == null) {
+      if (state.curFinalizedSubDir == null || bpidDir == null) {
         return null; // There are no entries in the null subdir.
       }
       long now = Time.monotonicNow();
