@@ -104,7 +104,7 @@ public class FileSystemImage implements Tool {
     }
 
     try (ImageWriter w = new ImageWriter(opts)) {
-      for (TreePath e : new FSTreeWalk(new Path(argv[rem.length]), getConf())) {
+      for (TreePath e : new FSTreeWalk(new Path(rem[0]), getConf())) {
         w.accept(e); // add and continue
       }
     }
