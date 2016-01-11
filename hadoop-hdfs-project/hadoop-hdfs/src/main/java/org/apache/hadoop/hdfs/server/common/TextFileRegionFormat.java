@@ -249,7 +249,10 @@ public class TextFileRegionFormat
         }
       } finally {
         BufferedReader r = iterators.remove(i);
-        r.close();
+        if (r != null) {
+          // null on last element
+          r.close();
+        }
       }
       return null;
     }

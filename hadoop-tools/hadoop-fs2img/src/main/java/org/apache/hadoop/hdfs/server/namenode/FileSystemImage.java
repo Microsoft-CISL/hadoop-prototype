@@ -34,11 +34,11 @@ public class FileSystemImage implements Tool {
   }
 
   protected void printUsage() {
-  HelpFormatter formatter = new HelpFormatter();
-  formatter.printHelp("fs2img [OPTIONS] URI", new Options());
-  formatter.setSyntaxPrefix("");
-  formatter.printHelp("Options", options());
-    ToolRunner.printGenericCommandUsage(System.out);
+    HelpFormatter formatter = new HelpFormatter();
+    formatter.printHelp("fs2img [OPTIONS] URI", new Options());
+    formatter.setSyntaxPrefix("");
+    formatter.printHelp("Options", options());
+      ToolRunner.printGenericCommandUsage(System.out);
   }
 
   static Options options() {

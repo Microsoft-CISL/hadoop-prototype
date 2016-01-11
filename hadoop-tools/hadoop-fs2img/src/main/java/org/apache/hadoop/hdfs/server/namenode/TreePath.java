@@ -16,6 +16,7 @@ import static org.apache.hadoop.hdfs.DFSUtil.string2Bytes;
 import static org.apache.hadoop.hdfs.server.namenode.DirectoryWithQuotaFeature.DEFAULT_NAMESPACE_QUOTA;
 import static org.apache.hadoop.hdfs.server.namenode.DirectoryWithQuotaFeature.DEFAULT_STORAGE_SPACE_QUOTA;
 
+// TODO: generalize, move FS/FileRegion to FSTreePath
 public class TreePath {
   private long id = -1;
   private final long parentId;
