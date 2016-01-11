@@ -58,8 +58,10 @@ public class AzureFileRegionFormat
 
       CloudTableClient client = account.createCloudTableClient();
       CloudTable tbl = client.getTableReference(o.table);
+      // XXX DEBUG
+      tbl.createIfNotExists();
+      // XXX Remove this
       return tbl;
-      //tbl.createIfNotExists();
     } catch (URISyntaxException e) {
       throw new RuntimeException(e);
     } catch (StorageException e) {
@@ -252,7 +254,7 @@ public class AzureFileRegionFormat
 
   }
 
-  static class RegionEntry extends TableServiceEntity {
+  public static class RegionEntry extends TableServiceEntity {
     private String partition;
     private FileRegion alias;
     public RegionEntry() {
