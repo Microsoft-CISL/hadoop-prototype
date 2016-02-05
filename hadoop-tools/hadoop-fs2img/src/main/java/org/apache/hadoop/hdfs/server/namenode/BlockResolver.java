@@ -50,4 +50,5 @@ public abstract class BlockResolver {
     return s.getBlockSize();
   }
 
+  public abstract int getReplication(FileStatus s);
 }

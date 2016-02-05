@@ -838,7 +838,6 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
         InputStream in = info.getDataInputStream(seekOffset);
         if(info.getState() == ReplicaState.PROVIDED) {
           b.setNumBytes(info.getNumBytes()); //to pass check in moveBlockAcrossStorage
-          //moveBlockAcrossStorage(b, StorageType.DISK); //OLD
           providedCacheManager.cacheBlock(b);
         }
         return in;
@@ -1445,7 +1444,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
       throws IOException {
     ReplicaInfo replicaInfo = volumeMap.get(b.getBlockPoolId(),
         b.getBlockId());
-    if (replicaInfo != null) {
+    if (replicaInfo != null && !(replicaInfo.getState() == ReplicaState.PROVIDED)) {
       throw new ReplicaAlreadyExistsException("Block " + b +
       " already exists in state " + replicaInfo.getState() +
       " and thus cannot be created.");
@@ -1494,6 +1493,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
 
     ReplicaBeingWritten newReplicaInfo = new ReplicaBeingWritten(b.getBlockId(), 
         b.getGenerationStamp(), v, f.getParentFile(), b.getNumBytes());
+    //TODO this is remove the old replica, if one existed; NEED TO HANDLE!!
     volumeMap.add(b.getBlockPoolId(), newReplicaInfo);
     return new ReplicaHandler(newReplicaInfo, ref);
   }
@@ -1653,7 +1653,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
           return new ReplicaHandler(newReplicaInfo, ref);
         } else {
           if (!(currentReplicaInfo.getGenerationStamp() < b
-              .getGenerationStamp() && currentReplicaInfo instanceof ReplicaInPipeline)) {
+              .getGenerationStamp() && currentReplicaInfo instanceof ReplicaInPipeline) && !(currentReplicaInfo.getState() == ReplicaState.PROVIDED)) {
             throw new ReplicaAlreadyExistsException("Block " + b
                 + " already exists in state " + currentReplicaInfo.getState()
                 + " and thus cannot be created.");
@@ -1672,7 +1672,8 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
       }
 
       // Stop the previous writer
-      ((ReplicaInPipeline) lastFoundReplicaInfo)
+      if (lastFoundReplicaInfo instanceof ReplicaInPipeline)
+    	((ReplicaInPipeline) lastFoundReplicaInfo)
           .stopWriter(writerStopTimeoutMs);
     } while (true);
   }
@@ -1907,13 +1908,16 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     if (replicaInfo == null) {
       throw new ReplicaNotFoundException(b);
     }
-    if (replicaInfo.getState() != state) {
+    //V: We treat Provided replicas same as Finalized replicas here
+    //TODO: revisit 
+    if (replicaInfo.getState() != state && 
+      !(state == ReplicaState.FINALIZED && replicaInfo.getState() == ReplicaState.PROVIDED)) {
       throw new UnexpectedReplicaStateException(b,state);
     }
-    if (!replicaInfo.getBlockFile().exists()) {
+    if (!(replicaInfo.getState() == ReplicaState.PROVIDED) && !replicaInfo.getBlockFile().exists()) {
       throw new FileNotFoundException(replicaInfo.getBlockFile().getPath());
     }
-    long onDiskLength = getLength(b);
+    long onDiskLength = replicaInfo.getVisibleLength(); //getLength(b);
     if (onDiskLength < minLength) {
       throw new EOFException(b + "'s on-disk length " + onDiskLength
           + " is shorter than minLength " + minLength);
@@ -2015,28 +2019,36 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
               + ": GenerationStamp not matched, info=" + info);
           continue;
         }
-        f = info.getBlockFile();
-        v = (FsVolumeImpl)info.getVolume();
-        if (v == null) {
-          errors.add("Failed to delete replica " + invalidBlks[i]
-              +  ". No volume for this replica, file=" + f);
-          continue;
+        //TODO hack for now; write in a cleaner way!
+        if(info.getState() != ReplicaState.PROVIDED) {
+	        f = info.getBlockFile();
+	        v = (FsVolumeImpl)info.getVolume();
+	        if (v == null) {
+	          errors.add("Failed to delete replica " + invalidBlks[i]
+	              +  ". No volume for this replica, file=" + f);
+	          continue;
+	        }
+	        File parent = f.getParentFile();
+	        if (parent == null) {
+	          errors.add("Failed to delete replica " + invalidBlks[i]
+	              +  ". Parent not found for file " + f);
+	          continue;
+	        }
+	        ReplicaInfo removing = volumeMap.remove(bpid, invalidBlks[i]);
+	        addDeletingBlock(bpid, removing.getBlockId());
+	        if (LOG.isDebugEnabled()) {
+	          LOG.debug("Block file " + removing.getBlockFile().getName()
+	              + " is to be deleted");
+	        }
         }
-        File parent = f.getParentFile();
-        if (parent == null) {
-          errors.add("Failed to delete replica " + invalidBlks[i]
-              +  ". Parent not found for file " + f);
-          continue;
-        }
-        ReplicaInfo removing = volumeMap.remove(bpid, invalidBlks[i]);
-        addDeletingBlock(bpid, removing.getBlockId());
-        if (LOG.isDebugEnabled()) {
-          LOG.debug("Block file " + removing.getBlockFile().getName()
-              + " is to be deleted");
+        else {
+        	ReplicaInfo removing = volumeMap.remove(bpid, invalidBlks[i]);
+        	v = null;
+        	f = null;
         }
       }
 
-      if (v.isTransientStorage()) {
+      if (v != null && v.isTransientStorage()) {
         RamDiskReplica replicaInfo =
           ramDiskReplicaTracker.getReplica(bpid, invalidBlks[i].getBlockId());
         if (replicaInfo != null) {
@@ -2060,10 +2072,11 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
       // It's ok to unlink the block file before the uncache operation
       // finishes.
       try {
-        asyncDiskService.deleteAsync(v.obtainReference(), f,
-            FsDatasetUtil.getMetaFile(f, invalidBlks[i].getGenerationStamp()),
-            new ExtendedBlock(bpid, invalidBlks[i]),
-            dataStorage.getTrashDirectoryForBlockFile(bpid, f));
+    	  if(v != null)
+            asyncDiskService.deleteAsync(v.obtainReference(), f,
+              FsDatasetUtil.getMetaFile(f, invalidBlks[i].getGenerationStamp()),
+              new ExtendedBlock(bpid, invalidBlks[i]),
+              dataStorage.getTrashDirectoryForBlockFile(bpid, f));
       } catch (ClosedChannelException e) {
         LOG.warn("Volume " + v + " is closed, ignore the deletion task for " +
             "block " + invalidBlks[i]);

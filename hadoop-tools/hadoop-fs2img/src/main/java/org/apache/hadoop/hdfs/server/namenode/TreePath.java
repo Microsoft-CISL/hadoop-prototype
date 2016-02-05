@@ -88,7 +88,7 @@ public class TreePath {
       BlockFormat.Writer<FileRegion> out) throws IOException {
     final FileStatus s = getFileStatus();
     INodeFile.Builder b = INodeFile.newBuilder()
-        .setReplication(1) //stat.getReplication());
+        .setReplication(blk.getReplication(s)) //stat.getReplication());
         .setModificationTime(s.getModificationTime())
         .setAccessTime(s.getAccessTime())
         .setPreferredBlockSize(blk.preferredBlockSize(s))

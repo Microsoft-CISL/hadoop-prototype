@@ -7,7 +7,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.util.Random;
-
+import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
@@ -84,13 +84,13 @@ public class TestNNLoad {
     }
   }
 
-  void createImage(TreeWalk t, Path out) throws Exception {
+  void createImage(TreeWalk t, Path out, Class<? extends BlockResolver> blockIdsClass) throws Exception {
     ImageWriter.Options opts = ImageWriter.defaults();
     opts.setConf(conf);
     opts.output(out.toString())
         .blocks(TextFileRegionFormat.class)
         .ugi(SingleUGIResolver.class)
-        .blockIds(FixedBlockResolver.class);
+        .blockIds(blockIdsClass);
     try (ImageWriter w = new ImageWriter(opts)) {
       for (TreePath e : t) {
         w.accept(e);
@@ -136,9 +136,43 @@ public class TestNNLoad {
 
   @Test(timeout=20000)
   public void testBlockLoad() throws Exception {
-    createImage(new FSTreeWalk(NAMEPATH, conf), NAMEPATH);
+    createImage(new FSTreeWalk(NAMEPATH, conf), NAMEPATH, FixedBlockResolver.class);
     startCluster(NAMEPATH, 1);
   }
+  
+  @Test //(timeout=500000)
+  public void testDefaultLoadReplication() throws Exception {
+	int targetReplication = 2;
+	conf.setInt(FixedBlockMultiReplicaResolver.REPLICATION, targetReplication);
+    createImage(new FSTreeWalk(NAMEPATH, conf), NAMEPATH, FixedBlockMultiReplicaResolver.class);
+    startCluster(NAMEPATH, 3);
+    Thread.sleep(100000);
+    
+    FileSystem fs = cluster.getFileSystem();
+    int count = 0;
+    for (TreePath e : new FSTreeWalk(NAMEPATH, conf)) {
+        FileStatus rs = e.getFileStatus();
+        Path hp = removePrefix(NAMEPATH, rs.getPath());
+        LOG.info("hp " + hp.toUri().getPath());
+        //skip HDFS specific files, which may have been created later on.
+        if(hp.toString().contains("in_use.lock") || hp.toString().contains("current"))
+          continue;
+        e.accept(count++);
+        assertTrue(fs.exists(hp));
+        FileStatus hs = fs.getFileStatus(hp);
+        
+        if (rs.isFile()) {
+            BlockLocation[] bl = fs.getFileBlockLocations(hs.getPath(), 0, hs.getLen());
+            int i = 0;
+            for(; i < bl.length; i++) {
+	          int currentRep = bl[i].getHosts().length;
+	          //+1 is due to caching kicking in when we read! -- TODO have to do this more intelligently!
+	          assertEquals(targetReplication + 1, currentRep);
+	        }
+        }
+      }
+  }
+
 
   static Path removePrefix(Path base, Path walk) {
     Path wpath = new Path(walk.toUri().getPath());
@@ -159,8 +193,8 @@ public class TestNNLoad {
 
   @Test //(timeout=30000)
   public void testBlockRead() throws Exception {
-    createImage(new FSTreeWalk(NAMEPATH, conf), NAMEPATH);
-    startCluster(NAMEPATH, 1);
+    createImage(new FSTreeWalk(NAMEPATH, conf), NAMEPATH, FixedBlockResolver.class);
+    startCluster(NAMEPATH, 3);
     FileSystem fs = cluster.getFileSystem();
     Thread.sleep(2000);
     int count = 0;
@@ -207,8 +241,29 @@ public class TestNNLoad {
 
           }
         }
+        //testing replication!
+        int currentReplication = fs.getReplication(hs.getPath()); 
+        short targetReplication = (short)(currentReplication + 2);
+        fs.setReplication(hs.getPath(), targetReplication);
+        boolean done = false;
+        while (!done)
+        {
+          BlockLocation[] bl = fs.getFileBlockLocations(hs.getPath(), 0, hs.getLen());
+          int i = 0;
+          for(; i < bl.length; i++) {
+              int currentRep = bl[i].getHosts().length;
+              if (currentRep != targetReplication) {
+                break;
+              }
+            }
+            done = i == bl.length;
+            if (done) break;
+          LOG.info("Waiting for replication of " + hs.getPath());
+          Thread.sleep(1000);
+        }
       }
     }
+    Thread.sleep(20000);
   }
 
 }

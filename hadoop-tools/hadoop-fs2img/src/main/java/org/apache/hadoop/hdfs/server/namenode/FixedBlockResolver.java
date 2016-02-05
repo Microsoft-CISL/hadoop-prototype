@@ -59,4 +59,8 @@ public class FixedBlockResolver extends BlockResolver implements Configurable {
     return blocksize;
   }
 
+  @Override
+  public int getReplication(FileStatus s) {
+	  return 1;
+  }
 }
