@@ -111,7 +111,7 @@ public class TestNNLoad {
   @Test(timeout = 20000)
   public void testLoadImage() throws Exception {
     final long seed = r.nextLong();
-    createImage(new RandomTreeWalk(seed), NAMEPATH);
+    createImage(new RandomTreeWalk(seed), NAMEPATH, FixedBlockResolver.class);
     startCluster(NAMEPATH, 0);
 
     FileSystem fs = cluster.getFileSystem();
