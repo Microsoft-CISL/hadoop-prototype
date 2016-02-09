@@ -46,6 +46,7 @@ public class TestNNLoad {
   final Path BASE = new Path(fBASE.toURI().toString());
   final Path BLOCKFILE = new Path(BASE, "blocks.csv");
   final Path NAMEPATH = new Path("file:///home/virajith/Desktop/protobuf/benchmarks");
+  final Path AZURE_NAMEPATH = new Path("wasb://x@y.blob.core.windows.net");
   final String SINGLEUSER = "dingo";
   final String SINGLEGROUP = "yak";
 
@@ -71,6 +72,8 @@ public class TestNNLoad {
     conf.setBoolean(DFSConfigKeys.DFS_DATANODE_PROVIDED, true);
     conf.set(ReaderOptions.FILEPATH, BLOCKFILE.toString());
     conf.set(ReaderOptions.DELIMITER, ",");
+    conf.set("fs.azure.account.key.y.blob.core.windows.net", 
+      "azkey");
   }
 
   @After

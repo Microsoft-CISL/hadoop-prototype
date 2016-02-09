@@ -32,7 +32,12 @@ public class FixedBlockResolver extends BlockResolver implements Configurable {
   @Override
   protected List<Long> blockLengths(FileStatus s) {
     ArrayList<Long> ret = new ArrayList<>();
+    if (!s.isFile()) {
+      return ret;
+    }
     if (0 == s.getLen()) {
+      //the file has length 0; so we will have one block of size 0
+      ret.add(0L);
       return ret;
     }
     int nblocks = (int)((s.getLen() - 1) / blocksize) + 1;
