@@ -21,7 +21,9 @@ import org.apache.hadoop.hdfs.server.blockmanagement.BlockManager;
 import org.apache.hadoop.hdfs.server.blockmanagement.ProvidedStorageMap.BlockProvider;
 import org.apache.hadoop.hdfs.server.common.TextFileRegionFormat;
 import org.apache.hadoop.hdfs.server.common.TextFileRegionFormat.ReaderOptions;
+import org.apache.hadoop.hdfs.server.mover.Mover;
 import org.apache.hadoop.hdfs.server.namenode.TreeWalk.TreeIterator;
+import org.apache.hadoop.util.ToolRunner;
 
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_NAME_DIR_KEY;
 
@@ -197,7 +199,7 @@ public class TestNNLoad {
   @Test //(timeout=30000)
   public void testBlockRead() throws Exception {
     createImage(new FSTreeWalk(NAMEPATH, conf), NAMEPATH, FixedBlockResolver.class);
-    startCluster(NAMEPATH, 3);
+    startCluster(NAMEPATH, 1);
     FileSystem fs = cluster.getFileSystem();
     Thread.sleep(2000);
     int count = 0;
@@ -218,6 +220,8 @@ public class TestNNLoad {
       assertEquals(SINGLEUSER, hs.getOwner());
       assertEquals(SINGLEGROUP, hs.getGroup());
       if (rs.isFile()) {
+        BlockLocation[] bl = fs.getFileBlockLocations(hs.getPath(), 0, hs.getLen());
+        LOG.info("File " + hp.toUri().getPath() + " locations " + bl.length);
         assertEquals(rs.getLen(), hs.getLen());
         try (ReadableByteChannel i = Channels.newChannel(
               new FileInputStream(new File(rs.getPath().toUri())))) {
@@ -244,29 +248,108 @@ public class TestNNLoad {
 
           }
         }
-        //testing replication!
-        int currentReplication = fs.getReplication(hs.getPath()); 
-        short targetReplication = (short)(currentReplication + 2);
-        fs.setReplication(hs.getPath(), targetReplication);
-        boolean done = false;
-        while (!done)
-        {
-          BlockLocation[] bl = fs.getFileBlockLocations(hs.getPath(), 0, hs.getLen());
-          int i = 0;
-          for(; i < bl.length; i++) {
-              int currentRep = bl[i].getHosts().length;
-              if (currentRep != targetReplication) {
+//        Thread.sleep(100);
+//        bl = fs.getFileBlockLocations(hs.getPath(), 0, hs.getLen());
+//        LOG.info("File " + hp.toUri().getPath() + " locations " + bl.length);
+//        //testing replication!
+//        int currentReplication = fs.getReplication(hs.getPath()); 
+//        short targetReplication = (short)(currentReplication + 2);
+//        fs.setReplication(hs.getPath(), targetReplication);
+//        boolean done = false;
+//        while (!done)
+//        {
+//          BlockLocation[] bl = fs.getFileBlockLocations(hs.getPath(), 0, hs.getLen());
+//          int i = 0;
+//          for(; i < bl.length; i++) {
+//              int currentRep = bl[i].getHosts().length;
+//              if (currentRep != targetReplication) {
+//                break;
+//              }
+//            }
+//            done = i == bl.length;
+//            if (done) break;
+//          LOG.info("Waiting for replication of " + hs.getPath());
+//          Thread.sleep(1000);
+//        }
+      }
+    }
+    
+    Thread.sleep(10000);
+    //checking a 2nd time access
+    for (TreePath e : new FSTreeWalk(NAMEPATH, conf)) {
+      FileStatus rs = e.getFileStatus();
+      Path hp = removePrefix(NAMEPATH, rs.getPath());
+      LOG.info("hp " + hp.toUri().getPath());
+      //skip HDFS specific files, which may have been created later on.
+      if(hp.toString().contains("in_use.lock") || hp.toString().contains("current"))
+        continue;
+      e.accept(count++);
+      assertTrue(fs.exists(hp));
+      FileStatus hs = fs.getFileStatus(hp);
+      assertEquals(hp.toUri().getPath(), hs.getPath().toUri().getPath());
+      assertEquals(rs.getPermission(), hs.getPermission());
+      assertEquals(SINGLEUSER, hs.getOwner());
+      assertEquals(SINGLEGROUP, hs.getGroup());
+      if (rs.isFile()) {
+        BlockLocation[] bl = fs.getFileBlockLocations(hs.getPath(), 0, hs.getLen());
+        LOG.info("File " + hp.toUri().getPath() + " locations " + bl.length);
+        try (ReadableByteChannel i = Channels.newChannel(
+            new FileInputStream(new File(rs.getPath().toUri())))) {
+          try (ReadableByteChannel j = Channels.newChannel(
+                fs.open(hs.getPath()))) {
+            ByteBuffer ib = ByteBuffer.allocate(4096);
+            ByteBuffer jb = ByteBuffer.allocate(4096);
+            while (true) {
+              int il = i.read(ib);
+              int jl = j.read(jb);
+              if (il < 0 || jl < 0) {
+                assertEquals(il, jl);
                 break;
               }
+              ib.flip();
+              jb.flip();
+              int cmp = Math.min(ib.remaining(), jb.remaining());
+              for (int k = 0; k < cmp; ++k) {
+                assertEquals(ib.get(), jb.get());
+              }
+              ib.compact();
+              jb.compact();
             }
-            done = i == bl.length;
-            if (done) break;
-          LOG.info("Waiting for replication of " + hs.getPath());
-          Thread.sleep(1000);
+  
+          }
         }
       }
     }
     Thread.sleep(20000);
   }
 
+  @Test //(timeout=30000)
+  public void testSetStoragePolicy() throws Exception {
+    createImage(new FSTreeWalk(NAMEPATH, conf), NAMEPATH, FixedBlockResolver.class);
+    startCluster(NAMEPATH, 3);
+    FileSystem fs = cluster.getFileSystem();
+    Thread.sleep(2000);
+    int count = 0;
+    // read NN metadata, verify contents match
+    // TODO NN could write, should find something else to validate
+    for (TreePath e : new FSTreeWalk(NAMEPATH, conf)) {
+      FileStatus rs = e.getFileStatus();
+      Path hp = removePrefix(NAMEPATH, rs.getPath());
+      LOG.info("hp " + hp.toUri().getPath());
+      //skip HDFS specific files, which may have been created later on.
+      if(hp.toString().contains("in_use.lock") || hp.toString().contains("current"))
+        continue;
+      e.accept(count++);
+      assertTrue(fs.exists(hp));
+      FileStatus hs = fs.getFileStatus(hp);
+      if (rs.isFile()) {        
+        LOG.info("Setting policy of file: " + hp.toUri().getPath() + " to HOT");
+        fs.setStoragePolicy(hs.getPath(), "HOT");
+        int rc = ToolRunner.run(conf, new Mover.Cli(),
+            new String[] { "-p", hs.getPath().toString() });
+        assertEquals("Movement to HOT should be successfull", 0, rc);
+      }
+    }
+    //Mover.main(null);
+  }
 }

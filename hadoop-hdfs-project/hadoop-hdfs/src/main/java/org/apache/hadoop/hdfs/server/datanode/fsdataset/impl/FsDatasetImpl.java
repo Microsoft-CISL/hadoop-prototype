@@ -833,7 +833,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
       }
       
       //TODO use native IO for local blocks
-      if(info.dataSourceExists()) {
+      if(info != null && info.dataSourceExists()) {
         LOG.info("Serving replica " + info + " from volume " + info.getVolume() + " of type " + info.getVolume().getStorageType());
         InputStream in = info.getDataInputStream(seekOffset);
         if(info.getState() == ReplicaState.PROVIDED) {

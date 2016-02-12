@@ -138,7 +138,7 @@ public class ProvidedCacheManager {
         return;
       
       if (existingValue.state == State.UNCACHING) {
-        //TODO
+        throw new IllegalStateException("Not yet implemented!");
       }
     }
     blocksForCaching.put(b, new Value(State.CACHING, storageType));
@@ -148,5 +148,6 @@ public class ProvidedCacheManager {
   
   synchronized void unCacheBlock (ExtendedBlock b) {
     //TODO
+    throw new IllegalStateException("Not yet implemented!");
   }
 }

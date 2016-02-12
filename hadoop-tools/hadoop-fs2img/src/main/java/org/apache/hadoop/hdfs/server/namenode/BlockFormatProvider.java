@@ -12,11 +12,14 @@ import org.apache.hadoop.hdfs.server.common.BlockAlias;
 import org.apache.hadoop.hdfs.server.common.BlockFormat;
 import org.apache.hadoop.hdfs.server.common.TextFileRegionFormat;
 import org.apache.hadoop.util.ReflectionUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class BlockFormatProvider extends BlockProvider implements Configurable {
 
   private Configuration conf;
   private BlockFormat<? extends BlockAlias> fmt;
+  public static final Logger LOG = LoggerFactory.getLogger(BlockFormatProvider.class);
 
   @Override
   @SuppressWarnings({ "rawtypes", "unchecked" })
@@ -24,6 +27,7 @@ public class BlockFormatProvider extends BlockProvider implements Configurable {
     Class<? extends BlockFormat> c =
       conf.getClass(DFSConfigKeys.IMAGE_WRITER_BLK_CLASS, TextFileRegionFormat.class, BlockFormat.class);
     fmt = ReflectionUtils.newInstance(c, conf);
+    LOG.info("Loaded BlockFormat class : " + c.getClass().getName());
     this.conf = conf;
   }
 

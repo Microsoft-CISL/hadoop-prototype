@@ -33,7 +33,7 @@ public class ProvidedBlockManager {
     this.providedVolume = providedVolume;
    
     Class<? extends FileRegionProvider> fmt =
-        conf.getClass(DFSConfigKeys.DFS_NAMENODE_BLK_PROVIDER_CLASS, TextFileRegionProvider.class, TextFileRegionProvider.class);
+        conf.getClass(DFSConfigKeys.DFS_NAMENODE_BLK_PROVIDER_CLASS, TextFileRegionProvider.class, FileRegionProvider.class);
     
     provider = ReflectionUtils.newInstance(fmt, conf);
     this.conf = conf;
@@ -71,12 +71,16 @@ public class ProvidedBlockManager {
   public static class TextFileRegionProvider extends FileRegionProvider implements Configurable {
 
     private Configuration conf;
-    private TextFileRegionFormat fmt;
+    private BlockFormat<FileRegion> fmt;
 
     @Override
     public void setConf(Configuration conf) {
-      fmt = new TextFileRegionFormat();
-      fmt.setConf(conf);
+
+      Class<? extends BlockFormat> c =
+          conf.getClass(DFSConfigKeys.IMAGE_WRITER_BLK_CLASS, TextFileRegionFormat.class, BlockFormat.class);
+      fmt = ReflectionUtils.newInstance(c, conf);
+      ((Configurable)fmt).setConf(conf); //redundant?
+      LOG.info("Loaded BlockFormat class : " + c.getClass().getName());
       this.conf = conf;
     }
 
