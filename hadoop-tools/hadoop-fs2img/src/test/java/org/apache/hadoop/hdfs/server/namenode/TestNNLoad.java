@@ -14,6 +14,7 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.HdfsConfiguration;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
@@ -199,7 +200,7 @@ public class TestNNLoad {
   @Test //(timeout=30000)
   public void testBlockRead() throws Exception {
     createImage(new FSTreeWalk(NAMEPATH, conf), NAMEPATH, FixedBlockResolver.class);
-    startCluster(NAMEPATH, 1);
+    startCluster(NAMEPATH, 3);
     FileSystem fs = cluster.getFileSystem();
     Thread.sleep(2000);
     int count = 0;
@@ -292,7 +293,15 @@ public class TestNNLoad {
       assertEquals(SINGLEGROUP, hs.getGroup());
       if (rs.isFile()) {
         BlockLocation[] bl = fs.getFileBlockLocations(hs.getPath(), 0, hs.getLen());
-        LOG.info("File " + hp.toUri().getPath() + " locations " + bl.length);
+        StringBuilder sb = new StringBuilder();
+        for (int i=0; i < bl.length; i++) {
+          String[] hosts = bl[i].getTopologyPaths();
+          StorageType[] storageTypes = bl[i].getStorageTypes();
+          for(int j = 0; j< hosts.length; j++)
+            sb.append(hosts[j]+":" + storageTypes[j] +",");
+          sb.append(" ");
+        }
+        LOG.info("File " + hp.toUri().getPath() + " " + sb.toString());
         try (ReadableByteChannel i = Channels.newChannel(
             new FileInputStream(new File(rs.getPath().toUri())))) {
           try (ReadableByteChannel j = Channels.newChannel(

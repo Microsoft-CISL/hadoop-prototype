@@ -154,6 +154,46 @@ public class LocatedBlock {
     }
   }
 
+  public void moveProvidedToEnd() {
+    
+    if (storageTypes != null) {
+      
+      int previousProvidedIndex = locs.length - 1; //always points to the first location which is not provided from the last 
+      for(; previousProvidedIndex > 0; ) {
+        if(storageTypes[previousProvidedIndex].equals(StorageType.PROVIDED))
+          previousProvidedIndex--;
+        else 
+          break;
+      }
+      
+      for(int i = 0; i < previousProvidedIndex; i++) {
+        if(storageTypes[i].equals(StorageType.PROVIDED)) {
+          //swap i and previousProvidedIndex
+          DatanodeInfoWithStorage tmp = locs[i];
+          locs[i] = locs[previousProvidedIndex];
+          locs[previousProvidedIndex] = tmp;
+          
+          //set the correct storage types
+          storageTypes[i] = locs[i].getStorageType(); 
+          storageTypes[previousProvidedIndex] = locs[previousProvidedIndex].getStorageType();
+          
+          for(; previousProvidedIndex > 0; ) {
+            if(storageTypes[previousProvidedIndex].equals(StorageType.PROVIDED))
+              previousProvidedIndex--;
+            else 
+              break;
+          }
+        }
+      }
+    }
+    
+    if (storageIDs != null) {
+      for(int i = 0; i < locs.length; i++) {
+        storageIDs[i] = locs[i].getStorageID();
+      }
+    }
+  }
+
   public long getStartOffset() {
     return offset;
   }

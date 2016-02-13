@@ -402,6 +402,7 @@ public class DatanodeManager {
       networktopology.sortByDistance(client, b.getLocations(), activeLen);
       // must update cache since we modified locations array
       b.updateCachedStorageInfo();
+      b.moveProvidedToEnd();
     }
   }
   
