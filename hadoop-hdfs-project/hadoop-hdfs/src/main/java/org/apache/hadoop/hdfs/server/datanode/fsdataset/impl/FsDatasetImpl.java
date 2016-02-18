@@ -165,12 +165,23 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
       reports = new ArrayList<>(curVolumes.size());
       for (FsVolumeImpl volume : curVolumes) {
         try (FsVolumeReference ref = volume.obtainReference()) {
-          StorageReport sr = new StorageReport(volume.toDatanodeStorage(),
-              false,
-              volume.getCapacity(),
-              volume.getDfsUsed(),
-              volume.getAvailable(),
-              volume.getBlockPoolUsed(bpid));
+          StorageReport sr;
+          if (volume.getStorageType() == StorageType.PROVIDED) {
+            sr = new StorageReport(volume.toDatanodeStorage(),
+                false,
+                0,
+                0,
+                0,
+                0);
+          }
+          else {
+            sr = new StorageReport(volume.toDatanodeStorage(),
+                false,
+                volume.getCapacity(),
+                volume.getDfsUsed(),
+                volume.getAvailable(),
+                volume.getBlockPoolUsed(bpid));
+          }
           reports.add(sr);
         } catch (ClosedChannelException e) {
           continue;

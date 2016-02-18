@@ -857,7 +857,8 @@ public class FsVolumeImpl implements FsVolumeSpi {
   void getVolumeMap(String bpid, ReplicaMap volumeMap,
                     final RamDiskReplicaTracker ramDiskReplicaMap)
       throws IOException {
-    getBlockPoolSlice(bpid).getVolumeMap(volumeMap, ramDiskReplicaMap);
+    if (currentDir != null)
+      getBlockPoolSlice(bpid).getVolumeMap(volumeMap, ramDiskReplicaMap);
   }
   
   @Override
@@ -878,7 +879,7 @@ public class FsVolumeImpl implements FsVolumeSpi {
   void addBlockPool(String bpid, Configuration conf) throws IOException {
     //Added to make sure that adding a block pool a second time doesn't make any changes
     BlockPoolSlice bp = bpSlices.get(bpid);
-    if (bp == null) {
+    if (bp == null && currentDir != null) {
       File bpdir = new File(currentDir, bpid);
       bp = new BlockPoolSlice(bpid, this, bpdir, conf);
       bpSlices.put(bpid, bp);
