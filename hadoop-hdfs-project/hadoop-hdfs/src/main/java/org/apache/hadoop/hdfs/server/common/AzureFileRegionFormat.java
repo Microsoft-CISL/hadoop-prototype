@@ -111,10 +111,10 @@ public class AzureFileRegionFormat
     @Override
     public void setConf(Configuration conf) {
       this.conf = conf;
-      this.key = conf.get(KEY);
-      this.table = conf.get(TABLE);
-      this.account = conf.get(ACCOUNT);
-      this.partition = conf.get(PARTITION);
+      this.key = conf.getTrimmed(KEY);
+      this.table = conf.getTrimmed(TABLE);
+      this.account = conf.getTrimmed(ACCOUNT);
+      this.partition = conf.getTrimmed(PARTITION);
     }
 
     @Override
