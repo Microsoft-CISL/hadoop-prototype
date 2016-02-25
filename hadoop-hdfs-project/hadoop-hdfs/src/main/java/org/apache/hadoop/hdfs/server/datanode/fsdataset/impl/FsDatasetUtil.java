@@ -49,14 +49,15 @@ public class FsDatasetUtil {
     return new File(unlinkTmpFile.getParentFile(), name.substring(0, n));
   }
   
-  public static File createNullChecksumFile(String filename) {
+  public static File createNullChecksumFile(String directory, String filename) {
     
     DataChecksum csum = DataChecksum.newDataChecksum(DataChecksum.Type.NULL, 512);
     try {
-      DataOutputStream dataOut = new DataOutputStream(new FileOutputStream(filename));
+      File checkSumfile = new File(directory, filename);
+      DataOutputStream dataOut = new DataOutputStream(new FileOutputStream(checkSumfile));
       BlockMetadataHeader.writeHeader(dataOut, csum);
       dataOut.close();
-      return new File(filename);
+      return checkSumfile;
     } catch (IOException e) {
         // TODO Auto-generated catch block
         e.printStackTrace();

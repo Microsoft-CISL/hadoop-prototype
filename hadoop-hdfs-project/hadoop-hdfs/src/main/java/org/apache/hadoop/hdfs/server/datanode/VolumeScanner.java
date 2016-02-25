@@ -31,6 +31,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.server.datanode.BlockScanner.Conf;
@@ -490,6 +492,11 @@ public class VolumeScanner extends Thread {
       long monotonicMs = Time.monotonicNow();
       expireOldScannedBytesRecords(monotonicMs);
 
+      if(volume.getStorageType() == StorageType.PROVIDED) {
+        //LOG.info("VolumeScanner skipping Provided Volume with ID:" + volume.getStorageID());
+        return 0;
+      }
+      
       if (!calculateShouldScan(volume.getStorageID(), conf.targetBytesPerSec,
           scannedBytesSum, startMinute, curMinute)) {
         // If neededBytesPerSec is too low, then wait few seconds for some old

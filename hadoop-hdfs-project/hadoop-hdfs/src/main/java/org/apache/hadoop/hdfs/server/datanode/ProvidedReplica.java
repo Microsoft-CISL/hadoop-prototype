@@ -3,6 +3,8 @@
  */
 package org.apache.hadoop.hdfs.server.datanode;
 
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_DATA_DIR_KEY;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -11,6 +13,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Collection;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -52,10 +55,26 @@ public class ProvidedReplica extends ReplicaInfo {
     } catch (IOException e) {
       this.remoteFS = null;
     }
+    Collection<String> dnDirectories =
+        conf.getTrimmedStringCollection(DFS_DATANODE_DATA_DIR_KEY);
+    String directoryToUse = ""; 
+    if (dnDirectories.size() > 0)
+      directoryToUse = dnDirectories.iterator().next();
     
-    this.metaFile = FsDatasetUtil.createNullChecksumFile(DatanodeUtil.getMetaName(getBlockName(), getGenerationStamp()));
+    this.metaFile = createMetaFile();
   }
 
+  private File createMetaFile() {
+    //TODO create a meta file that has checksums for actual data in the Provided block
+    Collection<String> dnDirectories =
+        conf.getTrimmedStringCollection(DFS_DATANODE_DATA_DIR_KEY);
+    String directoryToUse = ""; 
+    if (dnDirectories.size() > 0)
+      directoryToUse = dnDirectories.iterator().next();
+    
+    return FsDatasetUtil.createNullChecksumFile(directoryToUse, DatanodeUtil.getMetaName(getBlockName(), getGenerationStamp()));
+  }
+  
   public ProvidedReplica (ProvidedReplica r) {
     super(r);
     this.fileURI = r.fileURI;
@@ -68,8 +87,9 @@ public class ProvidedReplica extends ReplicaInfo {
       this.remoteFS = null;
     }
     
-    this.metaFile = FsDatasetUtil.createNullChecksumFile(DatanodeUtil.getMetaName(getBlockName(), getGenerationStamp()));
+    this.metaFile = createMetaFile();
   }
+  
   @Override
   public ReplicaState getState() {
     return ReplicaState.PROVIDED;
@@ -137,6 +157,12 @@ public class ProvidedReplica extends ReplicaInfo {
   @Override
   public long getDataSourceLength() {
     return this.getNumBytes();
+  }
+  
+  @Override
+  public File getMetaFile() {
+    //TODO have to deprecate this API
+    return metaFile;
   }
   
   @Override
