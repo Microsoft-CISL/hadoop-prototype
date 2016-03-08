@@ -49,26 +49,23 @@ public class FsDatasetUtil {
     return new File(unlinkTmpFile.getParentFile(), name.substring(0, n));
   }
   
-  public static File createNullChecksumFile(String directory, String filename) {
+  public static File createNullChecksumFile(File checkSumfile) {
     
     DataChecksum csum = DataChecksum.newDataChecksum(DataChecksum.Type.NULL, 512);
     try {
-      File checkSumfile = new File(directory, filename);
       DataOutputStream dataOut = new DataOutputStream(new FileOutputStream(checkSumfile));
       BlockMetadataHeader.writeHeader(dataOut, csum);
       dataOut.close();
       return checkSumfile;
     } catch (IOException e) {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
-    }    
-    return null;
+      throw new RuntimeException("Failed to create metafile " + checkSumfile, e);
+    }
   }
   
   static File getMetaFile(File f, long gs) {
-    if (f == null)
+    if (f == null) {
       return null;
-    
+    }
     return new File(f.getParent(),
         DatanodeUtil.getMetaName(f.getName(), gs));
   }

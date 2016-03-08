@@ -24,8 +24,12 @@ import org.apache.hadoop.hdfs.server.datanode.fsdataset.FsVolumeSpi;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.LengthInputStream;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.impl.FsDatasetUtil;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ProvidedReplica extends ReplicaInfo {
+
+  public static final Logger LOG = LoggerFactory.getLogger(ProvidedReplica.class);
 
   private URI fileURI;
   private long fileOffset;
@@ -33,7 +37,7 @@ public class ProvidedReplica extends ReplicaInfo {
   FileSystem remoteFS;
   
   //TODO metaFile can also be remote?
-  private File metaFile;
+  private final File metaFile;
   
   /**
    * Constructor
@@ -51,16 +55,11 @@ public class ProvidedReplica extends ReplicaInfo {
     this.fileOffset = fileOffset;
     this.conf = conf;
     try {
-      this.remoteFS = FileSystem.newInstance(fileURI, this.conf);
+      this.remoteFS = FileSystem.get(fileURI, this.conf);
     } catch (IOException e) {
+      LOG.warn("Failed to obtain filesystem for " + fileURI);
       this.remoteFS = null;
     }
-    Collection<String> dnDirectories =
-        conf.getTrimmedStringCollection(DFS_DATANODE_DATA_DIR_KEY);
-    String directoryToUse = ""; 
-    if (dnDirectories.size() > 0)
-      directoryToUse = dnDirectories.iterator().next();
-    
     this.metaFile = createMetaFile();
   }
 
@@ -68,11 +67,21 @@ public class ProvidedReplica extends ReplicaInfo {
     //TODO create a meta file that has checksums for actual data in the Provided block
     Collection<String> dnDirectories =
         conf.getTrimmedStringCollection(DFS_DATANODE_DATA_DIR_KEY);
-    String directoryToUse = ""; 
-    if (dnDirectories.size() > 0)
-      directoryToUse = dnDirectories.iterator().next();
-    
-    return FsDatasetUtil.createNullChecksumFile(directoryToUse, DatanodeUtil.getMetaName(getBlockName(), getGenerationStamp()));
+    File dir = new File(".");
+    if (dnDirectories.isEmpty()) {
+      LOG.warn("No configured data directories");
+    }
+    for (String d : dnDirectories) {
+      try {
+        dir = new File(new URI(d));
+        break;
+      } catch (URISyntaxException e) {
+        LOG.warn("Invalid URI for data directory: " + d);
+      }
+    }
+
+    return FsDatasetUtil.createNullChecksumFile(new File(dir,
+        DatanodeUtil.getMetaName(getBlockName(), getGenerationStamp())));
   }
   
   public ProvidedReplica (ProvidedReplica r) {
