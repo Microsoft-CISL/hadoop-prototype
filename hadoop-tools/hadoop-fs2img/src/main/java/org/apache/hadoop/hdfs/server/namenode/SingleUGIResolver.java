@@ -58,11 +58,13 @@ public class SingleUGIResolver extends UGIResolver implements Configurable {
     return group;
   }
 
-  protected void addUser(String name, int id) {
-    throw new UnsupportedOperationException();
+  @Override
+  void addUser(String name) {
+    //do nothing 
   }
 
-  protected void addGroup(String name, int id) {
-    throw new UnsupportedOperationException();
+  @Override
+  void addGroup(String name) {
+    //do nothing
   }
 }

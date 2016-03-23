@@ -95,7 +95,7 @@ public class TestNNLoad {
     opts.setConf(conf);
     opts.output(out.toString())
         .blocks(TextFileRegionFormat.class)
-        .ugi(SingleUGIResolver.class)
+        .ugi(FsUGIResolver.class)
         .blockIds(blockIdsClass);
     try (ImageWriter w = new ImageWriter(opts)) {
       for (TreePath e : t) {
@@ -148,8 +148,8 @@ public class TestNNLoad {
   
   @Test //(timeout=500000)
   public void testDefaultLoadReplication() throws Exception {
-	int targetReplication = 2;
-	conf.setInt(FixedBlockMultiReplicaResolver.REPLICATION, targetReplication);
+    int targetReplication = 2;
+	  conf.setInt(FixedBlockMultiReplicaResolver.REPLICATION, targetReplication);
     createImage(new FSTreeWalk(NAMEPATH, conf), NAMEPATH, FixedBlockMultiReplicaResolver.class);
     startCluster(NAMEPATH, 3);
     Thread.sleep(100000);
@@ -199,6 +199,7 @@ public class TestNNLoad {
 
   @Test //(timeout=30000)
   public void testBlockRead() throws Exception {
+    conf.setClass(ImageWriter.Options.UGI_CLASS, FsUGIResolver.class, UGIResolver.class);
     createImage(new FSTreeWalk(NAMEPATH, conf), NAMEPATH, FixedBlockResolver.class);
     startCluster(NAMEPATH, 3);
     FileSystem fs = cluster.getFileSystem();
@@ -218,8 +219,9 @@ public class TestNNLoad {
       FileStatus hs = fs.getFileStatus(hp);
       assertEquals(hp.toUri().getPath(), hs.getPath().toUri().getPath());
       assertEquals(rs.getPermission(), hs.getPermission());
-      assertEquals(SINGLEUSER, hs.getOwner());
-      assertEquals(SINGLEGROUP, hs.getGroup());
+      assertEquals(rs.getOwner(), hs.getOwner());
+      assertEquals(rs.getGroup(), hs.getGroup());
+      LOG.info("File " + hp.toUri().getPath() + " User: " + hs.getOwner() + " group: " + hs.getGroup());
       if (rs.isFile()) {
         BlockLocation[] bl = fs.getFileBlockLocations(hs.getPath(), 0, hs.getLen());
         LOG.info("File " + hp.toUri().getPath() + " locations " + bl.length);
@@ -289,8 +291,8 @@ public class TestNNLoad {
       FileStatus hs = fs.getFileStatus(hp);
       assertEquals(hp.toUri().getPath(), hs.getPath().toUri().getPath());
       assertEquals(rs.getPermission(), hs.getPermission());
-      assertEquals(SINGLEUSER, hs.getOwner());
-      assertEquals(SINGLEGROUP, hs.getGroup());
+      assertEquals(rs.getOwner(), hs.getOwner());
+      assertEquals(rs.getGroup(), hs.getGroup());
       if (rs.isFile()) {
         BlockLocation[] bl = fs.getFileBlockLocations(hs.getPath(), 0, hs.getLen());
         StringBuilder sb = new StringBuilder();

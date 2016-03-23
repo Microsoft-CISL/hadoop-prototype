@@ -69,6 +69,10 @@ public abstract class UGIResolver {
     }
   }
 
+  abstract void addUser(String name);
+  
+  abstract void addGroup(String name);
+  
   protected void addGroup(String name, int id) {
     Integer gid = groups.put(name, id);
     if (gid != null) {

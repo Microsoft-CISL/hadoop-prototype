@@ -87,6 +87,8 @@ public class TreePath {
   INode toFile(UGIResolver ugi, BlockResolver blk,
       BlockFormat.Writer<FileRegion> out) throws IOException {
     final FileStatus s = getFileStatus();
+    ugi.addUser(s.getOwner());
+    ugi.addGroup(s.getGroup());
     INodeFile.Builder b = INodeFile.newBuilder()
         .setReplication(blk.getReplication(s)) //stat.getReplication());
         .setModificationTime(s.getModificationTime())
@@ -115,6 +117,8 @@ public class TreePath {
 
   INode toDirectory(UGIResolver ugi) {
     final FileStatus s = getFileStatus();
+    ugi.addUser(s.getOwner());
+    ugi.addGroup(s.getGroup());
     INodeDirectory.Builder b = INodeDirectory.newBuilder()
       .setModificationTime(s.getModificationTime())
       .setNsQuota(DEFAULT_NAMESPACE_QUOTA)
