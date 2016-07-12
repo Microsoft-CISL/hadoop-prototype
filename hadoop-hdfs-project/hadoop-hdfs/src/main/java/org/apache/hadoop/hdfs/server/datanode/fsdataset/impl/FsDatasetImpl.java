@@ -1841,7 +1841,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
                 .add(rur.getOriginalReplica());
             break;
           case TEMPORARY:
-          case PROVIDED://no block reports for PROVIDED blocks
+          case PROVIDED: // no block reports for PROVIDED blocks
             break;
           default:
             assert false : "Illegal ReplicaInfo state.";
