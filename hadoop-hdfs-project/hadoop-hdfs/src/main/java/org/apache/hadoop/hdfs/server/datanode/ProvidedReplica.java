@@ -73,17 +73,19 @@ public class ProvidedReplica extends ReplicaInfo {
     }
     for (String d : dnDirectories) {
       try {
-        dir = new File(new URI(d));
+        // Strip off [PROVIDED] prefix.
+        StorageLocation storageLocation = StorageLocation.parse(d);
+        dir = storageLocation.getFile();
         break;
-      } catch (URISyntaxException e) {
-        LOG.warn("Invalid URI for data directory: " + d);
+      } catch (IOException e) {
+        LOG.warn("Unable to parse storage location for data directory: " + d);
       }
     }
 
     return FsDatasetUtil.createNullChecksumFile(new File(dir,
         DatanodeUtil.getMetaName(getBlockName(), getGenerationStamp())));
   }
-  
+
   public ProvidedReplica (ProvidedReplica r) {
     super(r);
     this.fileURI = r.fileURI;
