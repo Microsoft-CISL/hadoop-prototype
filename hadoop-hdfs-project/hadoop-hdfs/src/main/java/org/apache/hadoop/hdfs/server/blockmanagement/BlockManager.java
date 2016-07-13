@@ -2507,6 +2507,7 @@ public class BlockManager implements BlockStatsMXBean {
       }
     case RUR:       // should not be reported
     case TEMPORARY: // should not be reported
+    case PROVIDED:  // should not be reported
     default:
       String msg = "Unexpected replica state " + reportedState
       + " for block: " + storedBlock + 
@@ -2533,6 +2534,7 @@ public class BlockManager implements BlockStatsMXBean {
       return (!storedBlock.isComplete());
     case RUR:       // should not be reported                                                                                             
     case TEMPORARY: // should not be reported                                                                                             
+    case PROVIDED:  // should not be reported
     default:
       return false;
     }

@@ -78,7 +78,7 @@ public class ProvidedStorageMap {
       throws IOException {
     if (storageId != null && storageId.equals(s.getStorageID())) {
       if (StorageType.PROVIDED.equals(s.getStorageType())) {
-        // poll service, initiate 
+        // poll service, initiate
         p.start();
         dn.injectStorage(storage);
         return dns.getProvidedStorage(dn, s);
@@ -128,23 +128,23 @@ public class ProvidedStorageMap {
     LocatedBlocks build(DatanodeDescriptor client) {
       // TODO: to support multiple provided storages, need to pass/maintain map
       // set all fields of pending DatanodeInfo
-      
+
       List<String> excludedUUids = new ArrayList<String>();
       for (LocatedBlock b: blocks) {
         DatanodeInfo[] infos = b.getLocations();
         StorageType[] types = b.getStorageTypes();
-        
+
         for (int i = 0; i < types.length; i++) {
           if (!StorageType.PROVIDED.equals(types[i])) {
             excludedUUids.add(infos[i].getDatanodeUuid());
           }
         }
       }
-      
+
       DatanodeDescriptor dn = dns.choose(client, excludedUUids);
       if (dn == null)
         dn = dns.choose(client);
-      
+
       pending.replaceInternal(dn);
       return new LocatedBlocks(flen, isUC, blocks, last, lastComplete, feInfo);
     }
@@ -229,15 +229,15 @@ public class ProvidedStorageMap {
       }
       return dn;
     }
-    
+
     DatanodeDescriptor choose(DatanodeDescriptor client, List<String> excludedUUids) {
       // exact match for now
       DatanodeDescriptor dn = dns.get(client.getDatanodeUuid());
-      
+
       if (null == dn || excludedUUids.contains(client.getDatanodeUuid())) {
         dn = null;
         Set<String> exploredUUids = new HashSet<String>();
-        
+
         while(exploredUUids.size() < dns.size()) {
           Map.Entry<String, DatanodeDescriptor> d =
                   dns.ceilingEntry(UUID.randomUUID().toString());
@@ -255,7 +255,7 @@ public class ProvidedStorageMap {
           return dns.get(uuid);
         }
       }
-      
+
       return dn;
     }
 
@@ -264,35 +264,35 @@ public class ProvidedStorageMap {
       // XXX Not uniformally random; skewed toward sparse sections of the ids
       Set<DatanodeDescriptor> excludedNodes = new HashSet<DatanodeDescriptor>();
       if (excludedStorages != null) {
-  	    for(int i=0; i < excludedStorages.length; i++) {
-  	    	LOG.info("Excluded: " + excludedStorages[i].getDatanodeDescriptor());
-  	      excludedNodes.add(excludedStorages[i].getDatanodeDescriptor());
-  	    }
+        for(int i=0; i < excludedStorages.length; i++) {
+          LOG.info("Excluded: " + excludedStorages[i].getDatanodeDescriptor());
+          excludedNodes.add(excludedStorages[i].getDatanodeDescriptor());
+        }
       }
       Set<DatanodeDescriptor> exploredNodes = new HashSet<DatanodeDescriptor>();
-      
+
       while(exploredNodes.size() < dns.size()) {
-      	Map.Entry<String, DatanodeDescriptor> d =
-      		      dns.ceilingEntry(UUID.randomUUID().toString());
-  	    if (null == d) {
-  	      d = dns.firstEntry();
-  	    }
-  	    DatanodeDescriptor node = d.getValue();
-  	    //this node has already been explored, and was not selected earlier
-  	    if (exploredNodes.contains(node))
-  	    	continue;
-  	    exploredNodes.add(node);
-  	    //this node has been excluded
-  	    if (excludedNodes.contains(node))
-  	    	continue;
-  	    return node;
+        Map.Entry<String, DatanodeDescriptor> d =
+                dns.ceilingEntry(UUID.randomUUID().toString());
+        if (null == d) {
+          d = dns.firstEntry();
+        }
+        DatanodeDescriptor node = d.getValue();
+        //this node has already been explored, and was not selected earlier
+        if (exploredNodes.contains(node))
+          continue;
+        exploredNodes.add(node);
+        //this node has been excluded
+        if (excludedNodes.contains(node))
+          continue;
+        return node;
       }
-      
+
       return null;
     }
-    
+
     DatanodeDescriptor chooseRandom() {
-    	return chooseRandom(null);
+      return chooseRandom(null);
     }
     // TODO: recovery? invalidation?
 
@@ -304,8 +304,8 @@ public class ProvidedStorageMap {
         node.addBlockToBeReplicated(block, targets);
       }
       else {
-      	//TODO throw an exception!!!
-      	//TODO if we instrument each DN to hold multiple replicas, will this case ever arise??
+        //TODO throw an exception!!!
+        //TODO if we instrument each DN to hold multiple replicas, will this case ever arise??
         LOG.error("Cannot find a source node to replicate block: " + block + " from");
       }
     }

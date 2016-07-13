@@ -5,8 +5,6 @@ import java.net.URI;
 import java.util.Collections;
 import java.util.Iterator;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configurable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
@@ -17,10 +15,14 @@ import org.apache.hadoop.hdfs.server.datanode.ProvidedReplica;
 import org.apache.hadoop.hdfs.server.datanode.ReplicaInfo;
 import org.apache.hadoop.util.ReflectionUtils;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class ProvidedBlockManager {
 
-  static final Log LOG = LogFactory.getLog(ProvidedBlockManager.class);
-  
+  static final Logger LOG
+      = LoggerFactory.getLogger(ProvidedBlockManager.class);
+
   ReplicaMap replicaMap;
   FsVolumeImpl providedVolume;
 
@@ -53,7 +55,7 @@ public class ProvidedBlockManager {
       FileRegion region = iter.next();
       ReplicaInfo info = new ProvidedReplica(region.getBlock().getBlockId(), region.getPath().toUri(), 
           region.getOffset(), region.getBlock().getNumBytes(), 1001, providedVolume, conf);
-      LOG.info("Adding block info " + info);
+      LOG.info("Adding block info {}", info);
       replicaMap.add(blkPoolId, info);
     }
   }
@@ -80,7 +82,7 @@ public class ProvidedBlockManager {
           conf.getClass(DFSConfigKeys.IMAGE_WRITER_BLK_CLASS, TextFileRegionFormat.class, BlockFormat.class);
       fmt = ReflectionUtils.newInstance(c, conf);
       ((Configurable)fmt).setConf(conf); //redundant?
-      LOG.info("Loaded BlockFormat class : " + c.getClass().getName());
+      LOG.info("Loaded BlockFormat class : {}", c.getClass().getName());
       this.conf = conf;
     }
 
