@@ -385,6 +385,7 @@ public class DataNode extends ReconfigurableBase
   private String dnUserName = null;
   private BlockRecoveryWorker blockRecoveryWorker;
   private ErasureCodingWorker ecWorker;
+  private StoragePolicySatisfyWorker storagePolicySatisfyWorker;
   private final Tracer tracer;
   private final TracerConfigurationManager tracerConfigurationManager;
   private static final int NUM_CORES = Runtime.getRuntime()
@@ -1421,6 +1422,8 @@ public class DataNode extends ReconfigurableBase
 
     ecWorker = new ErasureCodingWorker(getConf(), this);
     blockRecoveryWorker = new BlockRecoveryWorker(this);
+    storagePolicySatisfyWorker =
+        new StoragePolicySatisfyWorker(getConf(), this);
 
     blockPoolManager = new BlockPoolManager(this);
     blockPoolManager.refreshNamenodes(getConf());
@@ -3580,14 +3583,18 @@ public class DataNode extends ReconfigurableBase
       @SuppressWarnings("unchecked")
       Map<String, Object> volumeInfo = (Map<String, Object>) volume.getValue();
       DatanodeVolumeInfo dnStorageInfo = new DatanodeVolumeInfo(
-          volume.getKey(), (Long) volumeInfo.get("usedSpace"),
-          (Long) volumeInfo.get("freeSpace"),
-          (Long) volumeInfo.get("reservedSpace"),
-          (Long) volumeInfo.get("reservedSpaceForReplicas"),
-          (Long) volumeInfo.get("numBlocks"),
-          (StorageType) volumeInfo.get("storageType"));
+              volume.getKey(), (Long) volumeInfo.get("usedSpace"),
+              (Long) volumeInfo.get("freeSpace"),
+              (Long) volumeInfo.get("reservedSpace"),
+              (Long) volumeInfo.get("reservedSpaceForReplicas"),
+              (Long) volumeInfo.get("numBlocks"),
+              (StorageType) volumeInfo.get("storageType"));
       volumeInfoList.add(dnStorageInfo);
     }
     return volumeInfoList;
+  }
+
+  StoragePolicySatisfyWorker getStoragePolicySatisfyWorker() {
+    return storagePolicySatisfyWorker;
   }
 }
