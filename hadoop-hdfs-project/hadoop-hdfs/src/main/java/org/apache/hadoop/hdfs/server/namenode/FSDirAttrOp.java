@@ -30,6 +30,7 @@ import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.XAttrHelper;
 import org.apache.hadoop.hdfs.protocol.BlockStoragePolicy;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants;
+import org.apache.hadoop.hdfs.protocol.HdfsFileStatus;
 import org.apache.hadoop.hdfs.protocol.QuotaExceededException;
 import org.apache.hadoop.hdfs.protocol.SnapshotAccessControlException;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfo;
@@ -201,7 +202,7 @@ public class FSDirAttrOp {
   }
 
   static HdfsFileStatus satisfyStoragePolicy(FSDirectory fsd, BlockManager bm,
-      String src, boolean logRetryCache) throws IOException {
+                                             String src, boolean logRetryCache) throws IOException {
 
     FSPermissionChecker pc = fsd.getPermissionChecker();
     List<XAttr> xAttrs = Lists.newArrayListWithCapacity(1);
