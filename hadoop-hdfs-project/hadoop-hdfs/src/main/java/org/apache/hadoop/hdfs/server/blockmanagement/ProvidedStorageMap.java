@@ -40,6 +40,12 @@ import org.apache.hadoop.hdfs.protocol.DatanodeInfoWithStorage;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.protocol.LocatedBlock;
 import org.apache.hadoop.hdfs.protocol.LocatedBlocks;
+import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.BlockAliasProto;
+import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.BlockAliasType;
+import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.FileRegionProto;
+import org.apache.hadoop.hdfs.protocolPB.PBHelper;
+import org.apache.hadoop.hdfs.server.common.BlockAlias;
+import org.apache.hadoop.hdfs.server.common.FileRegion;
 import org.apache.hadoop.hdfs.server.protocol.DatanodeStorage;
 import org.apache.hadoop.hdfs.server.protocol.DatanodeStorage.State;
 import org.apache.hadoop.hdfs.util.RwLock;
@@ -168,7 +174,27 @@ public class ProvidedStorageMap {
               storages[i].getDatanodeDescriptor(), sids[i], types[i]);
         }
       }
-      return new LocatedBlock(eb, locs, sids, types, pos, isCorrupt, null);
+
+      FileRegion fileRegion;
+      try {
+        fileRegion = (FileRegion) blockProvider.resolve(eb.getLocalBlock());
+      } catch (IOException e) {
+        LOG.error("Could not resolve PROVIDED block: {}", e);
+        fileRegion = null;
+      }
+      FileRegionProto fileRegionProto = FileRegionProto.newBuilder()
+          .setUri(fileRegion.getPath().toString())
+          .setOffset(fileRegion.getOffset())
+          .setLength(fileRegion.getLength())
+          .setBpid(fileRegion.getBlockPoolId())
+          .setGenStamp(fileRegion.getGenerationStamp())
+          .build();
+      BlockAliasProto blockAliasProto = BlockAliasProto.newBuilder()
+          .setFileRegion(fileRegionProto)
+          .setType(BlockAliasType.FILE_REGION)
+          .build();
+      return new LocatedBlock(eb, locs, sids, types, pos, isCorrupt, null,
+          blockAliasProto.toByteArray());
     }
 
     @Override
@@ -397,9 +423,9 @@ public class ProvidedStorageMap {
    */
   static class ProvidedBlockList extends BlockListAsLongs {
 
-    private final Iterator<Block> inner;
+    private final Iterator<BlockAlias> inner;
 
-    ProvidedBlockList(Iterator<Block> inner) {
+    ProvidedBlockList(Iterator<BlockAlias> inner) {
       this.inner = inner;
     }
 
@@ -408,7 +434,7 @@ public class ProvidedStorageMap {
       return new Iterator<BlockReportReplica>() {
         @Override
         public BlockReportReplica next() {
-          return new BlockReportReplica(inner.next());
+          return new BlockReportReplica(inner.next().getBlock());
         }
         @Override
         public boolean hasNext() {

@@ -20,6 +20,11 @@ package org.apache.hadoop.hdfs.server.common;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants;
+import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos;
+import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.BlockAliasProto;
+import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.FileRegionProto;
+
+import java.io.IOException;
 
 /**
  * This class is used to represent provided blocks that are file regions,
@@ -118,4 +123,28 @@ public class FileRegion implements BlockAlias {
     return this.bpid;
   }
 
+  public static class Builder extends BlockAlias.Builder<FileRegion> {
+    long blockId;
+
+    public Builder(byte[] data) {
+      super(data);
+    }
+
+    public Builder setBlockId(long blockId) {
+      this.blockId = blockId;
+      return this;
+    }
+
+    public FileRegion build() throws IOException {
+      BlockAliasProto baProto = BlockAliasProto.parseFrom(data);
+      if (baProto.getType() != HdfsProtos.BlockAliasType.FILE_REGION) {
+        return null; // probably better to throw.
+      }
+      FileRegionProto frProto = baProto.getFileRegion();
+      FileRegion region = new FileRegion(blockId, new Path(frProto.getUri()),
+          frProto.getOffset(), frProto.getLength(), frProto.getBpid(),
+          frProto.getGenStamp());
+      return region;
+    }
+  }
 }

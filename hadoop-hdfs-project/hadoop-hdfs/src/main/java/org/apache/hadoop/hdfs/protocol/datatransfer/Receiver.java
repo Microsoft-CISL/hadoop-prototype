@@ -157,7 +157,8 @@ public abstract class Receiver implements DataTransferProtocol {
         proto.getSendChecksums(),
         (proto.hasCachingStrategy() ?
             getCachingStrategy(proto.getCachingStrategy()) :
-          CachingStrategy.newDefaultStrategy()));
+          CachingStrategy.newDefaultStrategy()),
+        proto.getBlockAlias().toByteArray());
     } finally {
       if (traceScope != null) traceScope.close();
     }
@@ -189,7 +190,8 @@ public abstract class Receiver implements DataTransferProtocol {
           (proto.hasPinning() ? proto.getPinning(): false),
           (PBHelperClient.convertBooleanList(proto.getTargetPinningsList())),
           proto.getStorageId(),
-          proto.getTargetStorageIdsList().toArray(new String[0]));
+          proto.getTargetStorageIdsList().toArray(new String[0]),
+          proto.getBlockAlias().toByteArray());
     } finally {
      if (traceScope != null) traceScope.close();
     }

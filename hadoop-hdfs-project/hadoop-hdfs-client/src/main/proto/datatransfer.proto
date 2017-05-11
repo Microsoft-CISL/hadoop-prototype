@@ -72,6 +72,7 @@ message OpReadBlockProto {
   required uint64 len = 3;
   optional bool sendChecksums = 4 [default = true];
   optional CachingStrategyProto cachingStrategy = 5;
+  optional bytes blockAlias = 6;
 }
 
 message ChecksumProto {
@@ -127,6 +128,7 @@ message OpWriteBlockProto {
   repeated bool targetPinnings = 15;
   optional string storageId = 16;
   repeated string targetStorageIds = 17;
+  optional bytes blockAlias = 18;
 }
   
 message OpTransferBlockProto {

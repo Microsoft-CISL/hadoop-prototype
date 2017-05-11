@@ -57,6 +57,9 @@ import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.BlockOpResponseP
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.BlockOpResponseProto.Builder;
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.ReadOpChecksumInfoProto;
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.Status;
+import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.BlockAliasProto;
+import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.BlockAliasType;
+import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.FileRegionProto;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenSecretManager;
 import org.apache.hadoop.hdfs.server.datanode.CachingStrategy;
 import org.apache.hadoop.hdfs.server.datanode.InternalDataNodeTestUtils;
@@ -187,7 +190,7 @@ public class TestDataTransferProtocol {
       String description, Boolean eofExcepted) throws IOException {
     sendBuf.reset();
     recvBuf.reset();
-    writeBlock(block, stage, newGS, DEFAULT_CHECKSUM);
+    writeBlock(block, stage, newGS, DEFAULT_CHECKSUM, null);
     if (eofExcepted) {
       sendResponse(Status.ERROR, null, null, recvOut);
       sendRecvData(description, true);
@@ -330,7 +333,7 @@ public class TestDataTransferProtocol {
       cluster.shutdown();
     }
   }
-  
+
   @Test  
   public void testDataTransferProtocol() throws IOException {
     Random random = new Random();
@@ -378,14 +381,14 @@ public class TestDataTransferProtocol {
     DataChecksum badChecksum = Mockito.spy(DEFAULT_CHECKSUM);
     Mockito.doReturn(-1).when(badChecksum).getBytesPerChecksum();
 
-    writeBlock(poolId, newBlockId, badChecksum);
+    writeBlock(poolId, newBlockId, badChecksum, null);
     recvBuf.reset();
     sendResponse(Status.ERROR, null, null, recvOut);
     sendRecvData("wrong bytesPerChecksum while writing", true);
 
     sendBuf.reset();
     recvBuf.reset();
-    writeBlock(poolId, ++newBlockId, DEFAULT_CHECKSUM);
+    writeBlock(poolId, ++newBlockId, DEFAULT_CHECKSUM, null);
 
     PacketHeader hdr = new PacketHeader(
       4,     // size of packet
@@ -405,7 +408,7 @@ public class TestDataTransferProtocol {
     // test for writing a valid zero size block
     sendBuf.reset();
     recvBuf.reset();
-    writeBlock(poolId, ++newBlockId, DEFAULT_CHECKSUM);
+    writeBlock(poolId, ++newBlockId, DEFAULT_CHECKSUM, null);
 
     hdr = new PacketHeader(
       8,     // size of packet
@@ -433,21 +436,21 @@ public class TestDataTransferProtocol {
     recvBuf.reset();
     blk.setBlockId(blkid-1);
     sender.readBlock(blk, BlockTokenSecretManager.DUMMY_TOKEN, "cl",
-        0L, fileLen, true, CachingStrategy.newDefaultStrategy());
+        0L, fileLen, true, CachingStrategy.newDefaultStrategy(), null);
     sendRecvData("Wrong block ID " + newBlockId + " for read", false); 
 
     // negative block start offset -1L
     sendBuf.reset();
     blk.setBlockId(blkid);
     sender.readBlock(blk, BlockTokenSecretManager.DUMMY_TOKEN, "cl",
-        -1L, fileLen, true, CachingStrategy.newDefaultStrategy());
+        -1L, fileLen, true, CachingStrategy.newDefaultStrategy(), null);
     sendRecvData("Negative start-offset for read for block " + 
                  firstBlock.getBlockId(), false);
 
     // bad block start offset
     sendBuf.reset();
     sender.readBlock(blk, BlockTokenSecretManager.DUMMY_TOKEN, "cl",
-        fileLen, fileLen, true, CachingStrategy.newDefaultStrategy());
+        fileLen, fileLen, true, CachingStrategy.newDefaultStrategy(), null);
     sendRecvData("Wrong start-offset for reading block " +
                  firstBlock.getBlockId(), false);
     
@@ -465,7 +468,7 @@ public class TestDataTransferProtocol {
     sendBuf.reset();
     sender.readBlock(blk, BlockTokenSecretManager.DUMMY_TOKEN, "cl",
         0L, -1L-random.nextInt(oneMil), true,
-        CachingStrategy.newDefaultStrategy());
+        CachingStrategy.newDefaultStrategy(), null);
     sendRecvData("Negative length for reading block " +
                  firstBlock.getBlockId(), false);
     
@@ -478,14 +481,190 @@ public class TestDataTransferProtocol {
         recvOut);
     sendBuf.reset();
     sender.readBlock(blk, BlockTokenSecretManager.DUMMY_TOKEN, "cl",
-        0L, fileLen+1, true, CachingStrategy.newDefaultStrategy());
+        0L, fileLen+1, true, CachingStrategy.newDefaultStrategy(), null);
     sendRecvData("Wrong length for reading block " +
                  firstBlock.getBlockId(), false);
     
     //At the end of all this, read the file to make sure that succeeds finally.
     sendBuf.reset();
     sender.readBlock(blk, BlockTokenSecretManager.DUMMY_TOKEN, "cl",
-        0L, fileLen, true, CachingStrategy.newDefaultStrategy());
+        0L, fileLen, true, CachingStrategy.newDefaultStrategy(), null);
+    readFile(fileSys, file, fileLen);
+    } finally {
+      cluster.shutdown();
+    }
+  }
+
+  @Test
+  public void testDataTransferProtocolWithBlockAlias() throws IOException {
+    Random random = new Random();
+    final int oneMil = 1024*1024;
+    Path file = new Path("dataprotocol.dat");
+    int numDataNodes = 1;
+
+    FileRegionProto fileRegion = FileRegionProto.newBuilder()
+        .setUri("file://tmp/dataprotocol.dat")
+        .setOffset(0)
+        .setLength(1)
+        .setBpid("pool")
+        .setGenStamp(0)
+        .build();
+    BlockAliasProto blockAliasProto = BlockAliasProto.newBuilder()
+        .setFileRegion(fileRegion)
+        .setType(BlockAliasType.FILE_REGION)
+        .build();
+    byte[] blockAlias = blockAliasProto.toByteArray();
+
+    Configuration conf = new HdfsConfiguration();
+    conf.setInt(DFSConfigKeys.DFS_REPLICATION_KEY, numDataNodes);
+    MiniDFSCluster cluster = new MiniDFSCluster.Builder(conf).numDataNodes(numDataNodes).build();
+    try {
+    cluster.waitActive();
+    datanode = cluster.getFileSystem().getDataNodeStats(DatanodeReportType.LIVE)[0];
+    dnAddr = NetUtils.createSocketAddr(datanode.getXferAddr());
+    FileSystem fileSys = cluster.getFileSystem();
+
+    int fileLen = Math.min(conf.getInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY, 4096), 4096);
+
+      DFSTestUtil.createFile(fileSys, file, fileLen, fileLen,
+          fileSys.getDefaultBlockSize(file),
+          fileSys.getDefaultReplication(file), 0L);
+
+    // get the first blockid for the file
+    final ExtendedBlock firstBlock = DFSTestUtil.getFirstBlock(fileSys, file);
+    final String poolId = firstBlock.getBlockPoolId();
+    long newBlockId = firstBlock.getBlockId() + 1;
+
+    recvBuf.reset();
+    sendBuf.reset();
+
+    // bad version
+    recvOut.writeShort((short)(DataTransferProtocol.DATA_TRANSFER_VERSION-1));
+    sendOut.writeShort((short)(DataTransferProtocol.DATA_TRANSFER_VERSION-1));
+    sendRecvData("Wrong Version", true);
+
+    // bad ops
+    sendBuf.reset();
+    sendOut.writeShort((short)DataTransferProtocol.DATA_TRANSFER_VERSION);
+    sendOut.writeByte(Op.WRITE_BLOCK.code - 1);
+    sendRecvData("Wrong Op Code", true);
+
+    /* Test OP_WRITE_BLOCK */
+    sendBuf.reset();
+
+    DataChecksum badChecksum = Mockito.spy(DEFAULT_CHECKSUM);
+    Mockito.doReturn(-1).when(badChecksum).getBytesPerChecksum();
+
+    writeBlock(poolId, newBlockId, badChecksum, blockAlias);
+    recvBuf.reset();
+    sendResponse(Status.ERROR, null, null, recvOut);
+    sendRecvData("wrong bytesPerChecksum while writing", true);
+
+    sendBuf.reset();
+    recvBuf.reset();
+    writeBlock(poolId, ++newBlockId, DEFAULT_CHECKSUM, blockAlias);
+
+    PacketHeader hdr = new PacketHeader(
+      4,     // size of packet
+      0,     // offset in block,
+      100,   // seqno
+      false, // last packet
+      -1 - random.nextInt(oneMil), // bad datalen
+      false);
+    hdr.write(sendOut);
+
+    sendResponse(Status.SUCCESS, "", null, recvOut);
+    new PipelineAck(100, new int[] {PipelineAck.combineHeader
+      (PipelineAck.ECN.DISABLED, Status.ERROR)}).write(recvOut);
+    sendRecvData("negative DATA_CHUNK len while writing block " + newBlockId,
+                 true);
+
+    // test for writing a valid zero size block
+    sendBuf.reset();
+    recvBuf.reset();
+    writeBlock(poolId, ++newBlockId, DEFAULT_CHECKSUM, blockAlias);
+
+    hdr = new PacketHeader(
+      8,     // size of packet
+      0,     // OffsetInBlock
+      100,   // sequencenumber
+      true,  // lastPacketInBlock
+      0,     // chunk length
+      false);
+    hdr.write(sendOut);
+    sendOut.writeInt(0);           // zero checksum
+    sendOut.flush();
+    //ok finally write a block with 0 len
+    sendResponse(Status.SUCCESS, "", null, recvOut);
+    new PipelineAck(100, new int[] {PipelineAck.combineHeader
+      (PipelineAck.ECN.DISABLED, Status.SUCCESS)}).write(recvOut);
+    sendRecvData("Writing a zero len block blockid " + newBlockId, false);
+
+    /* Test OP_READ_BLOCK */
+
+    String bpid = cluster.getNamesystem().getBlockPoolId();
+    ExtendedBlock blk = new ExtendedBlock(bpid, firstBlock.getLocalBlock());
+    long blkid = blk.getBlockId();
+    // bad block id
+    sendBuf.reset();
+    recvBuf.reset();
+    blk.setBlockId(blkid-1);
+    sender.readBlock(blk, BlockTokenSecretManager.DUMMY_TOKEN, "cl",
+        0L, fileLen, true, CachingStrategy.newDefaultStrategy(), blockAlias);
+    sendRecvData("Wrong block ID " + newBlockId + " for read", false);
+
+    // negative block start offset -1L
+    sendBuf.reset();
+    blk.setBlockId(blkid);
+    sender.readBlock(blk, BlockTokenSecretManager.DUMMY_TOKEN, "cl",
+        -1L, fileLen, true, CachingStrategy.newDefaultStrategy(),
+        blockAlias);
+    sendRecvData("Negative start-offset for read for block " +
+                 firstBlock.getBlockId(), false);
+
+    // bad block start offset
+    sendBuf.reset();
+    sender.readBlock(blk, BlockTokenSecretManager.DUMMY_TOKEN, "cl",
+        fileLen, fileLen, true, CachingStrategy.newDefaultStrategy(),
+        blockAlias);
+    sendRecvData("Wrong start-offset for reading block " +
+                 firstBlock.getBlockId(), false);
+
+    // negative length is ok. Datanode assumes we want to read the whole block.
+    recvBuf.reset();
+
+    BlockOpResponseProto.newBuilder()
+      .setStatus(Status.SUCCESS)
+      .setReadOpChecksumInfo(ReadOpChecksumInfoProto.newBuilder()
+          .setChecksum(DataTransferProtoUtil.toProto(DEFAULT_CHECKSUM))
+          .setChunkOffset(0L))
+      .build()
+      .writeDelimitedTo(recvOut);
+
+    sendBuf.reset();
+    sender.readBlock(blk, BlockTokenSecretManager.DUMMY_TOKEN, "cl",
+        0L, -1L-random.nextInt(oneMil), true,
+        CachingStrategy.newDefaultStrategy(), blockAlias);
+    sendRecvData("Negative length for reading block " +
+                 firstBlock.getBlockId(), false);
+
+    // length is more than size of block.
+    recvBuf.reset();
+    sendResponse(Status.ERROR, null,
+        "opReadBlock " + firstBlock +
+        " received exception java.io.IOException:  " +
+        "Offset 0 and length 4097 don't match block " + firstBlock + " ( blockLen 4096 )",
+        recvOut);
+    sendBuf.reset();
+    sender.readBlock(blk, BlockTokenSecretManager.DUMMY_TOKEN, "cl",
+        0L, fileLen+1, true, CachingStrategy.newDefaultStrategy(), null);
+    sendRecvData("Wrong length for reading block " +
+                 firstBlock.getBlockId(), false);
+
+    //At the end of all this, read the file to make sure that succeeds finally.
+    sendBuf.reset();
+    sender.readBlock(blk, BlockTokenSecretManager.DUMMY_TOKEN, "cl",
+        0L, fileLen, true, CachingStrategy.newDefaultStrategy(), blockAlias);
     readFile(fileSys, file, fileLen);
     } finally {
       cluster.shutdown();
@@ -548,18 +727,19 @@ public class TestDataTransferProtocol {
         .CHECKSUM_OK), newAck.getHeaderFlag(0));
   }
 
-  void writeBlock(String poolId, long blockId, DataChecksum checksum) throws IOException {
+  void writeBlock(String poolId, long blockId, DataChecksum checksum,
+      byte[] blockAlias) throws IOException {
     writeBlock(new ExtendedBlock(poolId, blockId),
-        BlockConstructionStage.PIPELINE_SETUP_CREATE, 0L, checksum);
+        BlockConstructionStage.PIPELINE_SETUP_CREATE, 0L, checksum, blockAlias);
   }
 
   void writeBlock(ExtendedBlock block, BlockConstructionStage stage,
-      long newGS, DataChecksum checksum) throws IOException {
+      long newGS, DataChecksum checksum, byte[] blockAlias) throws IOException {
     sender.writeBlock(block, StorageType.DEFAULT,
         BlockTokenSecretManager.DUMMY_TOKEN, "cl",
         new DatanodeInfo[1], new StorageType[1], null, stage,
         0, block.getNumBytes(), block.getNumBytes(), newGS,
         checksum, CachingStrategy.newDefaultStrategy(), false, false,
-        null, null, new String[0]);
+        null, null, new String[0], blockAlias);
   }
 }

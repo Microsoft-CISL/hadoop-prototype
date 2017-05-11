@@ -24,6 +24,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
 
+import com.google.protobuf.ByteString;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.fs.StorageType;
@@ -101,18 +102,22 @@ public class Sender implements DataTransferProtocol {
       final long blockOffset,
       final long length,
       final boolean sendChecksum,
-      final CachingStrategy cachingStrategy) throws IOException {
+      final CachingStrategy cachingStrategy,
+      final byte[] blockAlias) throws IOException {
 
-    OpReadBlockProto proto = OpReadBlockProto.newBuilder()
+    OpReadBlockProto.Builder proto = OpReadBlockProto.newBuilder()
         .setHeader(DataTransferProtoUtil.buildClientHeader(blk, clientName,
             blockToken))
         .setOffset(blockOffset)
         .setLen(length)
         .setSendChecksums(sendChecksum)
-        .setCachingStrategy(getCachingStrategy(cachingStrategy))
-        .build();
+        .setCachingStrategy(getCachingStrategy(cachingStrategy));
+    if (blockAlias != null) {
+        proto.setBlockAlias(ByteString.copyFrom(blockAlias));
+    }
+    proto.build();
 
-    send(out, Op.READ_BLOCK, proto);
+    send(out, Op.READ_BLOCK, proto.build());
   }
 
 
@@ -135,7 +140,8 @@ public class Sender implements DataTransferProtocol {
       final boolean pinning,
       final boolean[] targetPinnings,
       final String storageId,
-      final String[] targetStorageIds) throws IOException {
+      final String[] targetStorageIds,
+      final byte[] blockAlias) throws IOException {
     ClientOperationHeaderProto header = DataTransferProtoUtil.buildClientHeader(
         blk, clientName, blockToken);
 
@@ -164,6 +170,10 @@ public class Sender implements DataTransferProtocol {
     }
     if (storageId != null) {
       proto.setStorageId(storageId);
+    }
+
+    if (blockAlias != null) {
+        proto.setBlockAlias(ByteString.copyFrom(blockAlias));
     }
 
     send(out, Op.WRITE_BLOCK, proto.build());
