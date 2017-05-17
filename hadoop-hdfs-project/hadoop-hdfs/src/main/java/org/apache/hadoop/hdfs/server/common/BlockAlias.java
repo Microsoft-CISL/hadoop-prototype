@@ -19,8 +19,6 @@ package org.apache.hadoop.hdfs.server.common;
 
 import org.apache.hadoop.hdfs.protocol.Block;
 
-import java.io.IOException;
-
 /**
  * Interface used to load provided blocks.
  */
@@ -28,12 +26,4 @@ public interface BlockAlias {
 
   Block getBlock();
 
-  abstract class Builder<B extends BlockAlias> {
-    protected byte[] data;
-    Builder(byte[] data) {
-      this.data = data;
-    }
-
-    public abstract B build() throws IOException;
-  }
 }

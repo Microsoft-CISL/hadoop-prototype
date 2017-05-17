@@ -1816,8 +1816,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
     try {
       new Sender((DataOutputStream) pair.out).readBlock(lb.getBlock(),
           lb.getBlockToken(), clientName,
-          0, 1, true, CachingStrategy.newDefaultStrategy(),
-          lb.getBlockAlias());
+          0, 1, true, CachingStrategy.newDefaultStrategy());
       final BlockOpResponseProto reply =
           BlockOpResponseProto.parseFrom(PBHelperClient.vintPrefixed(pair.in));
       String logInfo = "trying to read " + lb.getBlock() + " from datanode " +

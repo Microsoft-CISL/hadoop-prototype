@@ -657,7 +657,6 @@ public class PBHelperClient {
     for (String storageId : blockTokenSecret.getStorageIds()) {
       builder.addStorageIds(storageId);
     }
-    builder.setBlockAlias(getByteString(blockTokenSecret.getBlockAlias()));
     return builder.build();
   }
 
@@ -939,8 +938,7 @@ public class PBHelperClient {
 
     return builder.setB(PBHelperClient.convert(b.getBlock()))
         .setBlockToken(PBHelperClient.convert(b.getBlockToken()))
-        .setCorrupt(b.isCorrupt()).setOffset(b.getStartOffset())
-        .build();
+        .setCorrupt(b.isCorrupt()).setOffset(b.getStartOffset()).build();
   }
 
   public static List<TokenProto> convert(

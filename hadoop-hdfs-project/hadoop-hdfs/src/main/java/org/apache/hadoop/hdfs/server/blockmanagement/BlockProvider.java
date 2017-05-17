@@ -20,7 +20,6 @@ package org.apache.hadoop.hdfs.server.blockmanagement;
 import java.io.IOException;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.server.blockmanagement.ProvidedStorageMap.ProvidedBlockList;
-import org.apache.hadoop.hdfs.server.common.BlockAlias;
 import org.apache.hadoop.hdfs.util.RwLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,7 +27,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Used to load provided blocks in the {@link BlockManager}.
  */
-public abstract class BlockProvider implements Iterable<BlockAlias> {
+public abstract class BlockProvider implements Iterable<Block> {
 
   private static final Logger LOG =
       LoggerFactory.getLogger(ProvidedStorageMap.class);
@@ -63,11 +62,4 @@ public abstract class BlockProvider implements Iterable<BlockAlias> {
     bm.processFirstBlockReport(storage, new ProvidedBlockList(iterator()));
     hasDNs = true;
   }
-
-  /**
-   * Find information pertaining to where the block is stored.
-   * @param block The block to find in the provided storage
-   * @return BlockAlias with information on how to read the block.
-   */
-  abstract BlockAlias resolve(Block block) throws IOException;
 }

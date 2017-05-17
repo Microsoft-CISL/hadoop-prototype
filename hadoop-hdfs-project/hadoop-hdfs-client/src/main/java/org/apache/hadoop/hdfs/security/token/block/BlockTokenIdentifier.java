@@ -27,7 +27,6 @@ import java.util.EnumSet;
 import java.util.Optional;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.sun.corba.se.spi.ior.Writeable;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.AccessModeProto;
@@ -55,19 +54,18 @@ public class BlockTokenIdentifier extends TokenIdentifier {
   private final EnumSet<AccessMode> modes;
   private StorageType[] storageTypes;
   private String[] storageIds;
-  private byte[] blockAlias;
   private boolean useProto;
 
   private byte [] cache;
 
   public BlockTokenIdentifier() {
-    this(null, null, 0, EnumSet.noneOf(AccessMode.class), null, null, null,
+    this(null, null, 0, EnumSet.noneOf(AccessMode.class), null, null,
         false);
   }
 
   public BlockTokenIdentifier(String userId, String bpid, long blockId,
       EnumSet<AccessMode> modes, StorageType[] storageTypes,
-      String[] storageIds, byte[] blockAlias, boolean useProto) {
+      String[] storageIds, boolean useProto) {
     this.cache = null;
     this.userId = userId;
     this.blockPoolId = bpid;
@@ -77,8 +75,6 @@ public class BlockTokenIdentifier extends TokenIdentifier {
                                 .orElse(StorageType.EMPTY_ARRAY);
     this.storageIds = Optional.ofNullable(storageIds)
                               .orElse(new String[0]);
-    this.blockAlias = Optional.ofNullable(blockAlias)
-        .orElse(new byte[0]);
     this.useProto = useProto;
   }
 
@@ -134,12 +130,8 @@ public class BlockTokenIdentifier extends TokenIdentifier {
     return storageTypes;
   }
 
-  public String[] getStorageIds() {
+  public String[] getStorageIds(){
     return storageIds;
-  }
-
-  public byte[] getBlockAlias() {
-    return blockAlias;
   }
 
   @Override
@@ -150,8 +142,7 @@ public class BlockTokenIdentifier extends TokenIdentifier {
         + ", blockId=" + this.getBlockId() + ", access modes="
         + this.getAccessModes() + ", storageTypes= "
         + Arrays.toString(this.getStorageTypes()) + ", storageIds= "
-        + Arrays.toString(this.getStorageIds()) + ", blockAlias= "
-        + Arrays.toString(this.getBlockAlias()) + ")";
+        + Arrays.toString(this.getStorageIds()) + ")";
   }
 
   static boolean isEqual(Object a, Object b) {
@@ -249,8 +240,6 @@ public class BlockTokenIdentifier extends TokenIdentifier {
     }
     storageIds = readStorageIds;
 
-    blockAlias = WritableUtils.readCompressedByteArray(in);
-
     useProto = false;
   }
 
@@ -281,8 +270,6 @@ public class BlockTokenIdentifier extends TokenIdentifier {
         .toArray(StorageType[]::new);
     storageIds = blockTokenSecretProto.getStorageIdsList().stream()
         .toArray(String[]::new);
-
-    blockAlias = blockTokenSecretProto.getBlockAlias().toByteArray();
     useProto = true;
   }
 
@@ -314,8 +301,6 @@ public class BlockTokenIdentifier extends TokenIdentifier {
     for (String id: storageIds) {
       WritableUtils.writeString(out, id);
     }
-
-    WritableUtils.writeCompressedByteArray(out, blockAlias);
   }
 
   @VisibleForTesting

@@ -19,16 +19,11 @@ package org.apache.hadoop.hdfs.server.blockmanagement;
 
 import org.apache.hadoop.conf.Configurable;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.DFSTestUtil;
 import org.apache.hadoop.hdfs.HdfsConfiguration;
 import org.apache.hadoop.hdfs.protocol.Block;
-import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
-import org.apache.hadoop.hdfs.protocol.LocatedBlock;
-import org.apache.hadoop.hdfs.server.common.BlockAlias;
-import org.apache.hadoop.hdfs.server.common.FileRegion;
 import org.apache.hadoop.hdfs.server.protocol.DatanodeStorage;
 import org.apache.hadoop.hdfs.util.RwLock;
 import org.junit.Before;
@@ -52,7 +47,7 @@ public class TestProvidedStorageMap {
   private RwLock nameSystemLock;
   private String providedStorageID;
 
-  static class TestBlockProvider extends BlockFormatProvider
+  static class TestBlockProvider extends BlockProvider
           implements Configurable {
 
     @Override
@@ -65,14 +60,14 @@ public class TestProvidedStorageMap {
     }
 
     @Override
-    public Iterator<BlockAlias> iterator() {
-      return new Iterator<BlockAlias>() {
+    public Iterator<Block> iterator() {
+      return new Iterator<Block>() {
         @Override
         public boolean hasNext() {
           return false;
         }
         @Override
-        public BlockAlias next() {
+        public Block next() {
           return null;
         }
         @Override
@@ -80,14 +75,6 @@ public class TestProvidedStorageMap {
           throw new UnsupportedOperationException();
         }
       };
-    }
-
-    @Override
-    public FileRegion resolve(Block block) {
-      if (block.getBlockId() == 123 && block.getGenerationStamp() == 0) {
-        return new FileRegion(123, new Path("/foo"), 0, 1024, "pool", 0);
-      }
-      return null;
     }
   }
 
@@ -160,37 +147,7 @@ public class TestProvidedStorageMap {
             dns2Provided == providedMapStorage);
     assertTrue("The DatanodeDescriptor should contain the provided storage",
             dn2.getStorageInfo(providedStorageID) == providedMapStorage);
-  }
 
-  @Test
-  public void testBlockAlias() throws IOException {
-    ProvidedStorageMap providedMap = new ProvidedStorageMap(
-        nameSystemLock, bm, conf);
-    DatanodeStorageInfo providedMapStorage =
-        providedMap.getProvidedStorageInfo();
-
-    //create a datanode
-    DatanodeDescriptor dn1 = createDatanodeDescriptor(5000);
-
-    //associate two storages to the datanode
-    DatanodeStorage dn1ProvidedStorage = new DatanodeStorage(
-            providedStorageID,
-            DatanodeStorage.State.NORMAL,
-            StorageType.PROVIDED);
-    DatanodeStorage dn1DiskStorage = new DatanodeStorage(
-            "sid-1", DatanodeStorage.State.NORMAL, StorageType.DISK);
-
-    when(nameSystemLock.hasWriteLock()).thenReturn(true);
-    DatanodeStorageInfo dns1Provided = providedMap.getStorage(dn1,
-            dn1ProvidedStorage);
-    DatanodeStorageInfo dns1Disk = providedMap.getStorage(dn1,
-            dn1DiskStorage);
-
-    ExtendedBlock eb = new ExtendedBlock("pool", 123);
-    LocatedBlockBuilder builder = providedMap.newLocatedBlocks(1);
-    LocatedBlock lb = builder.newLocatedBlock(eb,
-        new DatanodeStorageInfo[]{providedMapStorage}, 0, false);
-    assertTrue(lb.getBlockAlias() != null);
 
   }
 }

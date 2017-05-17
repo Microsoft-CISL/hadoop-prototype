@@ -398,13 +398,12 @@ public class BlockReaderRemote implements BlockReader {
       PeerCache peerCache,
       CachingStrategy cachingStrategy,
       Tracer tracer,
-      int networkDistance,
-      byte[] blockAlias) throws IOException {
+      int networkDistance) throws IOException {
     // in and out will be closed when sock is closed (by the caller)
     final DataOutputStream out = new DataOutputStream(new BufferedOutputStream(
         peer.getOutputStream()));
     new Sender(out).readBlock(block, blockToken, clientName, startOffset, len,
-        verifyChecksum, cachingStrategy, blockAlias);
+        verifyChecksum, cachingStrategy);
 
     //
     // Get bytes in block

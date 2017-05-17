@@ -535,7 +535,6 @@ class DataStreamer extends Daemon {
   protected final LoadingCache<DatanodeInfo, DatanodeInfo> excludedNodes;
   private final String[] favoredNodes;
   private final EnumSet<AddBlockFlag> addBlockFlags;
-  private final byte[] blockAlias;
 
   private DataStreamer(HdfsFileStatus stat, ExtendedBlock block,
                        DFSClient dfsClient, String src,
@@ -544,17 +543,6 @@ class DataStreamer extends Daemon {
                        ByteArrayManager byteArrayManage,
                        boolean isAppend, String[] favoredNodes,
                        EnumSet<AddBlockFlag> flags) {
-    this(stat, block, dfsClient, src, progress, checksum, cachingStrategy,
-        byteArrayManage, isAppend, favoredNodes, flags, null);
-  }
-
-  private DataStreamer(HdfsFileStatus stat, ExtendedBlock block,
-                       DFSClient dfsClient, String src,
-                       Progressable progress, DataChecksum checksum,
-                       AtomicReference<CachingStrategy> cachingStrategy,
-                       ByteArrayManager byteArrayManage,
-                       boolean isAppend, String[] favoredNodes,
-                       EnumSet<AddBlockFlag> flags, byte[] blockAlias) {
     this.block = new BlockToWrite(block);
     this.dfsClient = dfsClient;
     this.src = src;
@@ -571,7 +559,6 @@ class DataStreamer extends Daemon {
     this.excludedNodes = initExcludedNodes(conf.getExcludedNodesCacheExpiry());
     this.errorState = new ErrorState(conf.getDatanodeRestartTimeout());
     this.addBlockFlags = flags;
-    this.blockAlias = blockAlias;
   }
 
   /**
@@ -583,7 +570,7 @@ class DataStreamer extends Daemon {
                ByteArrayManager byteArrayManage, String[] favoredNodes,
                EnumSet<AddBlockFlag> flags) {
     this(stat, block, dfsClient, src, progress, checksum, cachingStrategy,
-        byteArrayManage, false, favoredNodes, flags, null);
+        byteArrayManage, false, favoredNodes, flags);
     stage = BlockConstructionStage.PIPELINE_SETUP_CREATE;
   }
 
@@ -1722,7 +1709,7 @@ class DataStreamer extends Daemon {
             nodes.length, block.getNumBytes(), bytesSent, newGS,
             checksum4WriteBlock, cachingStrategy.get(), isLazyPersistFile,
             (targetPinnings != null && targetPinnings[0]), targetPinnings,
-            nodeStorageIDs[0], nodeStorageIDs, blockAlias);
+            nodeStorageIDs[0], nodeStorageIDs);
 
         // receive ack for connect
         BlockOpResponseProto resp = BlockOpResponseProto.parseFrom(

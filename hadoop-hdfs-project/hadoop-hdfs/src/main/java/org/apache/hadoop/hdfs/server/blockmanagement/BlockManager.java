@@ -1301,14 +1301,14 @@ public class BlockManager implements BlockStatsMXBean {
           blockTokens[i] = blockTokenSecretManager.generateToken(
               NameNode.getRemoteUser().getShortUserName(),
               internalBlock, EnumSet.of(mode), b.getStorageTypes(),
-              b.getStorageIDs(), b.getBlockAlias());
+              b.getStorageIDs());
         }
         sb.setBlockTokens(blockTokens);
       } else {
         b.setBlockToken(blockTokenSecretManager.generateToken(
             NameNode.getRemoteUser().getShortUserName(),
             b.getBlock(), EnumSet.of(mode), b.getStorageTypes(),
-            b.getStorageIDs(), b.getBlockAlias()));
+            b.getStorageIDs()));
       }
     }
   }

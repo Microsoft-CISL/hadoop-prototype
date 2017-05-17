@@ -129,7 +129,7 @@ public class TestDataXceiverLazyPersistHint {
         DataChecksum.newDataChecksum(DataChecksum.Type.NULL, 0),
         CachingStrategy.newDefaultStrategy(),
         lazyPersist,
-        false, null, null, new String[0], null);
+        false, null, null, new String[0]);
   }
 
   // Helper functions to setup the mock objects.

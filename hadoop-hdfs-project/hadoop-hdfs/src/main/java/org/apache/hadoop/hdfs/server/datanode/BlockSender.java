@@ -38,7 +38,6 @@ import org.apache.hadoop.hdfs.HdfsConfiguration;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.protocol.datatransfer.PacketHeader;
-import org.apache.hadoop.hdfs.server.common.BlockAlias;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.ReplicaState;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.FsVolumeReference;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.LengthInputStream;
@@ -151,8 +150,6 @@ class BlockSender implements java.io.Closeable {
   private final String clientTraceFmt;
   private volatile ChunkChecksum lastChunkChecksum = null;
   private DataNode datanode;
-  /** BlockAlias for PROVIDED blocks. */
-  private final BlockAlias  blockAlias;
 
   /** The replica of the block that is being read. */
   private final Replica replica;
@@ -170,7 +167,7 @@ class BlockSender implements java.io.Closeable {
   
   private long lastCacheDropOffset;
   private final FileIoProvider fileIoProvider;
-
+  
   @VisibleForTesting
   static long CACHE_DROP_INTERVAL_BYTES = 1024 * 1024; // 1MB
   
@@ -191,13 +188,12 @@ class BlockSender implements java.io.Closeable {
    * @param sendChecksum send checksum to client.
    * @param datanode datanode from which the block is being read
    * @param clientTraceFmt format string used to print client trace logs
-   * @param blockAlias
    * @throws IOException
    */
   BlockSender(ExtendedBlock block, long startOffset, long length,
               boolean corruptChecksumOk, boolean verifyChecksum,
               boolean sendChecksum, DataNode datanode, String clientTraceFmt,
-              CachingStrategy cachingStrategy, BlockAlias blockAlias)
+              CachingStrategy cachingStrategy)
       throws IOException {
     InputStream blockIn = null;
     DataInputStream checksumIn = null;
@@ -208,7 +204,6 @@ class BlockSender implements java.io.Closeable {
       this.corruptChecksumOk = corruptChecksumOk;
       this.verifyChecksum = verifyChecksum;
       this.clientTraceFmt = clientTraceFmt;
-      this.blockAlias = blockAlias;
 
       /*
        * If the client asked for the cache to be dropped behind all reads,

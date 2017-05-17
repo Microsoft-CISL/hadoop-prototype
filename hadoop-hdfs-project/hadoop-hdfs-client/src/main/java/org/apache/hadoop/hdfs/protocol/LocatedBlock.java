@@ -57,9 +57,6 @@ public class LocatedBlock {
    */
   private DatanodeInfo[] cachedLocs;
 
-
-  private byte[] blockAlias; // BlockAlias info proxied through the client.
-
   // Used when there are no locations
   static final DatanodeInfoWithStorage[] EMPTY_LOCS =
       new DatanodeInfoWithStorage[0];
@@ -86,13 +83,6 @@ public class LocatedBlock {
   public LocatedBlock(ExtendedBlock b, DatanodeInfoWithStorage[] locs,
       String[] storageIDs, StorageType[] storageTypes, long startOffset,
       boolean corrupt, DatanodeInfo[] cachedLocs) {
-    this(b, locs, storageIDs, storageTypes, startOffset, corrupt, cachedLocs,
-        null);
-  }
-
-  public LocatedBlock(ExtendedBlock b, DatanodeInfoWithStorage[] locs,
-      String[] storageIDs, StorageType[] storageTypes, long startOffset,
-      boolean corrupt, DatanodeInfo[] cachedLocs, byte[] blockAlias) {
     this.b = b;
     this.offset = startOffset;
     this.corrupt = corrupt;
@@ -102,7 +92,6 @@ public class LocatedBlock {
     this.cachedLocs = null == cachedLocs || 0 == cachedLocs.length
       ? EMPTY_LOCS
       : cachedLocs;
-    this.blockAlias = blockAlias;
   }
 
   private static DatanodeInfoWithStorage[] convert(
@@ -281,9 +270,5 @@ public class LocatedBlock {
 
   public BlockType getBlockType() {
     return BlockType.CONTIGUOUS;
-  }
-
-  public byte[] getBlockAlias() {
-    return blockAlias;
   }
 }

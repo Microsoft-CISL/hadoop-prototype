@@ -110,7 +110,7 @@ class StripedBlockReader {
           stripedReader.getSocketAddress4Transfer(source);
       Token<BlockTokenIdentifier> blockToken = datanode.getBlockAccessToken(
           block, EnumSet.of(BlockTokenIdentifier.AccessMode.READ),
-          StorageType.EMPTY_ARRAY, new String[0], new byte[0]);
+          StorageType.EMPTY_ARRAY, new String[0]);
         /*
          * This can be further improved if the replica is local, then we can
          * read directly from DN and need to check the replica is FINALIZED
@@ -127,8 +127,7 @@ class StripedBlockReader {
       return BlockReaderRemote.newBlockReader(
           "dummy", block, blockToken, offsetInBlock,
           block.getNumBytes() - offsetInBlock, true, "", peer, source,
-          null, stripedReader.getCachingStrategy(), datanode.getTracer(),
-          -1, null); // ehiggs - todo: should striped blocks be supported by provided?
+          null, stripedReader.getCachingStrategy(), datanode.getTracer(), -1);
     } catch (IOException e) {
       LOG.info("Exception while creating remote block reader, datanode {}",
           source, e);

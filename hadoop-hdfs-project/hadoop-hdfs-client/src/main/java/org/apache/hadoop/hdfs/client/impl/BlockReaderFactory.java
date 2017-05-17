@@ -194,11 +194,6 @@ public class BlockReaderFactory implements ShortCircuitReplicaCreator {
   private Tracer tracer;
 
   /**
-   * The BlockAlias used to read PROVIDED blocks.
-   */
-  private byte[] blockAlias;
-
-  /**
    * Information about the domain socket path we should use to connect to the
    * local peer-- or null if we haven't examined the local domain socket.
    */
@@ -304,11 +299,6 @@ public class BlockReaderFactory implements ShortCircuitReplicaCreator {
 
   public BlockReaderFactory setTracer(Tracer tracer) {
     this.tracer = tracer;
-    return this;
-  }
-
-  public BlockReaderFactory setBlockAlias(byte[] blockAlias) {
-    this.blockAlias = blockAlias;
     return this;
   }
 
@@ -858,7 +848,7 @@ public class BlockReaderFactory implements ShortCircuitReplicaCreator {
         fileName, block, token, startOffset, length,
         verifyChecksum, clientName, peer, datanode,
         clientContext.getPeerCache(), cachingStrategy, tracer,
-        networkDistance, blockAlias);
+        networkDistance);
   }
 
   @Override
