@@ -27,7 +27,6 @@ import java.util.EnumSet;
 import java.util.Optional;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.sun.corba.se.spi.ior.Writeable;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.AccessModeProto;

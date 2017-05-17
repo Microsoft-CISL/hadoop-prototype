@@ -158,7 +158,7 @@ public abstract class Receiver implements DataTransferProtocol {
         (proto.hasCachingStrategy() ?
             getCachingStrategy(proto.getCachingStrategy()) :
           CachingStrategy.newDefaultStrategy()),
-        proto.getBlockAlias().toByteArray());
+          proto.getBlockAlias().toByteArray());
     } finally {
       if (traceScope != null) traceScope.close();
     }

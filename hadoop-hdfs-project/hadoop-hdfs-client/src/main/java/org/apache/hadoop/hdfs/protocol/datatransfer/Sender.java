@@ -24,7 +24,6 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
 
-import com.google.protobuf.ByteString;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.fs.StorageType;
@@ -113,9 +112,8 @@ public class Sender implements DataTransferProtocol {
         .setSendChecksums(sendChecksum)
         .setCachingStrategy(getCachingStrategy(cachingStrategy));
     if (blockAlias != null) {
-        proto.setBlockAlias(ByteString.copyFrom(blockAlias));
+      proto.setBlockAlias(PBHelperClient.getByteString(blockAlias));
     }
-    proto.build();
 
     send(out, Op.READ_BLOCK, proto.build());
   }
@@ -173,7 +171,7 @@ public class Sender implements DataTransferProtocol {
     }
 
     if (blockAlias != null) {
-        proto.setBlockAlias(ByteString.copyFrom(blockAlias));
+      proto.setBlockAlias(PBHelperClient.getByteString(blockAlias));
     }
 
     send(out, Op.WRITE_BLOCK, proto.build());
@@ -188,17 +186,19 @@ public class Sender implements DataTransferProtocol {
       final String[] targetStorageIds,
       final byte[] blockAlias) throws IOException {
 
-    OpTransferBlockProto proto = OpTransferBlockProto.newBuilder()
+    OpTransferBlockProto.Builder proto = OpTransferBlockProto.newBuilder()
         .setHeader(DataTransferProtoUtil.buildClientHeader(
             blk, clientName, blockToken))
         .addAllTargets(PBHelperClient.convert(targets))
         .addAllTargetStorageTypes(
             PBHelperClient.convertStorageTypes(targetStorageTypes))
-        .addAllTargetStorageIds(Arrays.asList(targetStorageIds))
-        .setBlockAlias(PBHelperClient.getByteString(blockAlias))
-        .build();
+        .addAllTargetStorageIds(Arrays.asList(targetStorageIds));
 
-    send(out, Op.TRANSFER_BLOCK, proto);
+    if (blockAlias != null) {
+      proto.setBlockAlias(PBHelperClient.getByteString(blockAlias));
+    }
+
+    send(out, Op.TRANSFER_BLOCK, proto.build());
   }
 
   @Override
