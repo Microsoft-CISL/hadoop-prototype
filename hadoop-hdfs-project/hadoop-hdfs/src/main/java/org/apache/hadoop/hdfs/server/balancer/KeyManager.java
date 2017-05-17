@@ -95,7 +95,8 @@ public class KeyManager implements Closeable, DataEncryptionKeyFactory {
 
   /** Get an access token for a block. */
   public Token<BlockTokenIdentifier> getAccessToken(ExtendedBlock eb,
-      StorageType[] storageTypes, String[] storageIds) throws IOException {
+      StorageType[] storageTypes, String[] storageIds, byte[] blockAlias)
+      throws IOException {
     if (!isBlockTokenEnabled) {
       return BlockTokenSecretManager.DUMMY_TOKEN;
     } else {
@@ -105,7 +106,8 @@ public class KeyManager implements Closeable, DataEncryptionKeyFactory {
       }
       return blockTokenSecretManager.generateToken(null, eb,
           EnumSet.of(BlockTokenIdentifier.AccessMode.REPLACE,
-              BlockTokenIdentifier.AccessMode.COPY), storageTypes, storageIds);
+              BlockTokenIdentifier.AccessMode.COPY), storageTypes,
+          storageIds, blockAlias);
     }
   }
 

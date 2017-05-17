@@ -26,6 +26,7 @@ import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.server.common.BlockAlias;
 import org.apache.hadoop.hdfs.server.common.BlockFormat;
+import org.apache.hadoop.hdfs.server.common.FileRegion;
 import org.apache.hadoop.hdfs.server.common.TextFileRegionFormat;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.slf4j.Logger;
@@ -59,12 +60,12 @@ public class BlockFormatProvider extends BlockProvider
   }
 
   @Override
-  public Iterator<Block> iterator() {
+  public Iterator<BlockAlias> iterator() {
     try {
       final BlockFormat.Reader<? extends BlockAlias> reader =
           blockFormat.getReader(null);
 
-      return new Iterator<Block>() {
+      return new Iterator<BlockAlias>() {
 
         private final Iterator<? extends BlockAlias> inner = reader.iterator();
 
@@ -74,8 +75,8 @@ public class BlockFormatProvider extends BlockProvider
         }
 
         @Override
-        public Block next() {
-          return inner.next().getBlock();
+        public BlockAlias next() {
+          return inner.next();
         }
 
         @Override
@@ -86,6 +87,12 @@ public class BlockFormatProvider extends BlockProvider
     } catch (IOException e) {
       throw new RuntimeException("Failed to read provided blocks", e);
     }
+  }
+
+  BlockAlias resolve(Block block) throws IOException {
+    final BlockFormat.Reader<? extends BlockAlias> reader =
+        blockFormat.getReader(null);
+    return reader.resolve(block);
   }
 
 }

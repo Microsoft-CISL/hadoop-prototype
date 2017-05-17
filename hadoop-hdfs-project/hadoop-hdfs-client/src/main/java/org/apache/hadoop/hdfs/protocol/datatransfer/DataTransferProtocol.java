@@ -63,6 +63,7 @@ public interface DataTransferProtocol {
    * @param sendChecksum if false, the DN should skip reading and sending
    *        checksums
    * @param cachingStrategy  The caching strategy to use.
+   * @param blockAlias Proxied information about where to find PROVIDED blocks.
    */
   void readBlock(final ExtendedBlock blk,
       final Token<BlockTokenIdentifier> blockToken,
@@ -70,7 +71,8 @@ public interface DataTransferProtocol {
       final long blockOffset,
       final long length,
       final boolean sendChecksum,
-      final CachingStrategy cachingStrategy) throws IOException;
+      final CachingStrategy cachingStrategy,
+      final byte[] blockAlias) throws IOException;
 
   /**
    * Write a block to a datanode pipeline.
@@ -106,6 +108,7 @@ public interface DataTransferProtocol {
    *                  has not been provided.
    * @param targetStorageIDs target StorageIDs corresponding to the target
    *                         datanodes.
+   * @param blockAlias Proxied information about where to find PROVIDED blocks.
    */
   void writeBlock(final ExtendedBlock blk,
       final StorageType storageType,
@@ -125,7 +128,8 @@ public interface DataTransferProtocol {
       final boolean pinning,
       final boolean[] targetPinnings,
       final String storageID,
-      final String[] targetStorageIDs) throws IOException;
+      final String[] targetStorageIDs,
+      final byte[] blockAlias) throws IOException;
   /**
    * Transfer a block to another datanode.
    * The block stage must be
@@ -138,13 +142,15 @@ public interface DataTransferProtocol {
    * @param targets target datanodes.
    * @param targetStorageIDs StorageID designating where to write the
    *                     block.
+   * @param blockAlias Proxied information about where to find PROVIDED blocks.
    */
   void transferBlock(final ExtendedBlock blk,
       final Token<BlockTokenIdentifier> blockToken,
       final String clientName,
       final DatanodeInfo[] targets,
       final StorageType[] targetStorageTypes,
-      final String[] targetStorageIDs) throws IOException;
+      final String[] targetStorageIDs,
+      final byte[] blockAlias) throws IOException;
 
   /**
    * Request short circuit access file descriptors from a DataNode.

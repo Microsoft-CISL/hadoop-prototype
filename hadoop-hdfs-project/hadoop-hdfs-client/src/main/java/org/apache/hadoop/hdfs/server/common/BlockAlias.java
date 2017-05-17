@@ -19,11 +19,12 @@ package org.apache.hadoop.hdfs.server.common;
 
 import org.apache.hadoop.hdfs.protocol.Block;
 
+import java.io.IOException;
+
 /**
  * Interface used to load provided blocks.
  */
 public interface BlockAlias {
 
   Block getBlock();
-
 }

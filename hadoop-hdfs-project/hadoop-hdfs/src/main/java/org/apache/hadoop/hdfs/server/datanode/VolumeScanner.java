@@ -439,7 +439,7 @@ public class VolumeScanner extends Thread {
     try {
       blockSender = new BlockSender(block, 0, -1,
           false, true, true, datanode, null,
-          CachingStrategy.newDropBehind());
+          CachingStrategy.newDropBehind(), null);
       throttler.setBandwidth(bytesPerSec);
       long bytesRead = blockSender.sendBlock(nullStream, null, throttler);
       resultHandler.handle(block, null);

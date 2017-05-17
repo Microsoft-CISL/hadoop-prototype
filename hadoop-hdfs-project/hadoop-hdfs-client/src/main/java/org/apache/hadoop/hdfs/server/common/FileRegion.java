@@ -20,6 +20,11 @@ package org.apache.hadoop.hdfs.server.common;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.HdfsConstants;
+import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos;
+import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.BlockAliasProto;
+import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.FileRegionProto;
+
+import java.io.IOException;
 
 /**
  * This class is used to represent provided blocks that are file regions,
@@ -117,5 +122,4 @@ public class FileRegion implements BlockAlias {
   public String getBlockPoolId() {
     return this.bpid;
   }
-
 }

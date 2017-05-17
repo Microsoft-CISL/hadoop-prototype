@@ -630,6 +630,7 @@ public class DFSInputStream extends FSInputStream
         setUserGroupInformation(dfsClient.ugi).
         setConfiguration(dfsClient.getConfiguration()).
         setTracer(dfsClient.getTracer()).
+        setBlockAlias(targetBlock.getBlockAlias()).
         build();
   }
 
