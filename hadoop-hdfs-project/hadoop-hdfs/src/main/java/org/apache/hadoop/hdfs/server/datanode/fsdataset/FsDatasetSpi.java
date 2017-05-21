@@ -35,6 +35,7 @@ import java.util.Set;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.StorageType;
+import org.apache.hadoop.hdfs.server.common.BlockAlias;
 import org.apache.hadoop.util.AutoCloseableLock;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.protocol.Block;
@@ -329,7 +330,8 @@ public interface FsDatasetSpi<V extends FsVolumeSpi> extends FSDatasetMBean {
    * @throws IOException if an error occurs
    */
   ReplicaHandler createRbw(StorageType storageType, String storageId,
-      ExtendedBlock b, boolean allowLazyPersist) throws IOException;
+      ExtendedBlock b, boolean allowLazyPersist, BlockAlias blockAlias)
+      throws IOException;
 
   /**
    * Recovers a RBW replica and returns the meta info of the replica.
@@ -363,6 +365,9 @@ public interface FsDatasetSpi<V extends FsVolumeSpi> extends FSDatasetMBean {
    */
   ReplicaHandler append(ExtendedBlock b, long newGS,
       long expectedBlockLen) throws IOException;
+
+  ReplicaHandler append(ExtendedBlock b, long newGS, long expectedBlockLen,
+      BlockAlias blockAlias) throws IOException;
 
   /**
    * Recover a failed append to a finalized replica and returns the meta

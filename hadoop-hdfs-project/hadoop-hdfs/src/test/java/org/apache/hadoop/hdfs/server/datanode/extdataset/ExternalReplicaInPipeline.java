@@ -110,6 +110,11 @@ public class ExternalReplicaInPipeline implements ReplicaInPipeline {
   }
 
   @Override
+  public boolean isProvided() {
+    return false;
+  }
+
+  @Override
   public ReplicaInfo getReplicaInfo() {
     return null;
   }

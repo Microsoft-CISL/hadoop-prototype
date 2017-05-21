@@ -21,11 +21,14 @@ import java.io.Closeable;
 import java.io.IOException;
 
 import org.apache.hadoop.hdfs.protocol.Block;
+import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 
 /**
  * An abstract class used to read and write block maps for provided blocks.
  */
 public abstract class BlockFormat<T extends BlockAlias>  {
+
+  public abstract T newRegion(ExtendedBlock eb);
 
   /**
    * An abstract class that is used to read {@link BlockAlias}es
@@ -73,6 +76,7 @@ public abstract class BlockFormat<T extends BlockAlias>  {
    */
   public abstract Writer<T> getWriter(Writer.Options opts) throws IOException;
 
+  public abstract Writer<T> append(Writer.Options opts) throws IOException;
   /**
    * Refresh based on the underlying block map.
    * @throws IOException

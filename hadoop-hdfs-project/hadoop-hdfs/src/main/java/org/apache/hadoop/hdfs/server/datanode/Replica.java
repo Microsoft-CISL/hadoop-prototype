@@ -64,4 +64,6 @@ public interface Replica {
    * Return true if the target volume is backed by RAM.
    */
   public boolean isOnTransientStorage();
+
+  public boolean isProvided();
 }

@@ -274,7 +274,10 @@ class BPOfferService {
         block.getLocalBlock(), status, delHint);
     final DatanodeStorage storage = dn.getFSDataset().getStorage(storageUuid);
 
+    LOG.info("Notifying Namenode for block " + block + "; status " + status
+        + "; storage " + storageUuid);
     for (BPServiceActor actor : bpServices) {
+      LOG.info("Chosen Namenode for notifying " + actor);
       actor.getIbrManager().notifyNamenodeBlock(info, storage,
           isOnTransientStorage);
     }

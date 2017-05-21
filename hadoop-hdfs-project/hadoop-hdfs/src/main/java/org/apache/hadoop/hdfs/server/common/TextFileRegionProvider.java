@@ -18,12 +18,14 @@
 
 package org.apache.hadoop.hdfs.server.common;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.Iterator;
 
 import org.apache.hadoop.conf.Configurable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
+import org.apache.hadoop.hdfs.server.datanode.ReplicaInfo;
 import org.apache.hadoop.util.ReflectionUtils;
 
 /**
@@ -84,5 +86,13 @@ public class TextFileRegionProvider
   @Override
   public void refresh() throws IOException {
     fmt.refresh();
+  }
+
+  @Override
+  public boolean finalize(FileRegion region) throws IOException {
+    BlockFormat.Writer<FileRegion> writer = fmt.append(null);
+    writer.store(region);
+    writer.close();
+    return true;
   }
 }

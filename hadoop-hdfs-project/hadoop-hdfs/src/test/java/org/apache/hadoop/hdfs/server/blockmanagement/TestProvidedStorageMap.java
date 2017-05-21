@@ -189,7 +189,7 @@ public class TestProvidedStorageMap {
     ExtendedBlock eb = new ExtendedBlock("pool", 123);
     LocatedBlockBuilder builder = providedMap.newLocatedBlocks(1);
     LocatedBlock lb = builder.newLocatedBlock(eb,
-        new DatanodeStorageInfo[]{providedMapStorage}, 0, false);
+        new DatanodeStorageInfo[]{providedMapStorage}, 0, false, null);
     assertTrue(lb.getBlockAlias() != null);
 
   }

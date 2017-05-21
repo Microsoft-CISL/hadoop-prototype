@@ -353,7 +353,7 @@ public class TestWriteToReplica {
     }
  
     try {
-      dataSet.createRbw(StorageType.DEFAULT, null, blocks[FINALIZED], false);
+      dataSet.createRbw(StorageType.DEFAULT, null, blocks[FINALIZED], false, null);
       Assert.fail("Should not have created a replica that's already " +
       		"finalized " + blocks[FINALIZED]);
     } catch (ReplicaAlreadyExistsException e) {
@@ -371,7 +371,7 @@ public class TestWriteToReplica {
     }
 
     try {
-      dataSet.createRbw(StorageType.DEFAULT, null, blocks[TEMPORARY], false);
+      dataSet.createRbw(StorageType.DEFAULT, null, blocks[TEMPORARY], false, null);
       Assert.fail("Should not have created a replica that had created as " +
       		"temporary " + blocks[TEMPORARY]);
     } catch (ReplicaAlreadyExistsException e) {
@@ -381,7 +381,7 @@ public class TestWriteToReplica {
         0L, blocks[RBW].getNumBytes());  // expect to be successful
     
     try {
-      dataSet.createRbw(StorageType.DEFAULT, null, blocks[RBW], false);
+      dataSet.createRbw(StorageType.DEFAULT, null, blocks[RBW], false, null);
       Assert.fail("Should not have created a replica that had created as RBW " +
           blocks[RBW]);
     } catch (ReplicaAlreadyExistsException e) {
@@ -397,7 +397,7 @@ public class TestWriteToReplica {
     }
 
     try {
-      dataSet.createRbw(StorageType.DEFAULT, null, blocks[RWR], false);
+      dataSet.createRbw(StorageType.DEFAULT, null, blocks[RWR], false, null);
       Assert.fail("Should not have created a replica that was waiting to be " +
       		"recovered " + blocks[RWR]);
     } catch (ReplicaAlreadyExistsException e) {
@@ -413,7 +413,7 @@ public class TestWriteToReplica {
     }
 
     try {
-      dataSet.createRbw(StorageType.DEFAULT, null, blocks[RUR], false);
+      dataSet.createRbw(StorageType.DEFAULT, null, blocks[RUR], false, null);
       Assert.fail("Should not have created a replica that was under recovery " +
           blocks[RUR]);
     } catch (ReplicaAlreadyExistsException e) {
@@ -430,7 +430,7 @@ public class TestWriteToReplica {
           e.getMessage().contains(ReplicaNotFoundException.NON_EXISTENT_REPLICA));
     }
     
-    dataSet.createRbw(StorageType.DEFAULT, null, blocks[NON_EXISTENT], false);
+    dataSet.createRbw(StorageType.DEFAULT, null, blocks[NON_EXISTENT], false, null);
   }
   
   private void testWriteToTemporary(FsDatasetImpl dataSet, ExtendedBlock[] blocks) throws IOException {

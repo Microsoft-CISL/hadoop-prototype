@@ -510,4 +510,9 @@ abstract public class LocalReplica extends ReplicaInfo {
       metaRAF.write(b, 0, checksumsize);
     }
   }
+
+  @Override
+  public boolean isProvided() {
+    return false;
+  }
 }

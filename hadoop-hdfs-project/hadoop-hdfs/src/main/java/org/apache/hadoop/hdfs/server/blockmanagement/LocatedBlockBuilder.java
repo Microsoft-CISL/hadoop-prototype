@@ -22,12 +22,14 @@ import java.util.Collections;
 import java.util.List;
 
 import org.apache.hadoop.fs.FileEncryptionInfo;
+import org.apache.hadoop.hdfs.protocol.DatanodeInfo;
 import org.apache.hadoop.hdfs.protocol.ErasureCodingPolicy;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.protocol.LocatedBlock;
 import org.apache.hadoop.hdfs.protocol.LocatedBlocks;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
+import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
 
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
@@ -66,11 +68,18 @@ class LocatedBlockBuilder {
   // return new block so tokens can be set
   LocatedBlock newLocatedBlock(ExtendedBlock eb,
       DatanodeStorageInfo[] storage,
-      long pos, boolean isCorrupt) {
+      long pos, boolean isCorrupt, BlockTokenIdentifier.AccessMode mode) {
     LocatedBlock blk =
         BlockManager.newLocatedBlock(eb, storage, pos, isCorrupt);
     return blk;
   }
+
+  // return new block so tokens can be set
+  LocatedBlock newLocatedBlock(ExtendedBlock eb, DatanodeInfo[] storages,
+      BlockTokenIdentifier.AccessMode mode, boolean isProvided) {
+    return new LocatedBlock(eb, storages);
+  }
+
 
   LocatedBlockBuilder lastUC(boolean underConstruction) {
     isUC = underConstruction;

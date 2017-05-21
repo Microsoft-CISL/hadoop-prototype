@@ -66,7 +66,12 @@ public class LocatedBlock {
 
   public LocatedBlock(ExtendedBlock b, DatanodeInfo[] locs) {
     // By default, startOffset is unknown(-1) and corrupt is false.
-    this(b, convert(locs, null, null), null, null, -1, false, EMPTY_LOCS);
+    this(b, locs, null);
+  }
+
+  public LocatedBlock(ExtendedBlock b, DatanodeInfo[] locs, byte[] blockAlias) {
+    this(b, convert(locs, null, null), null, null, -1, false, EMPTY_LOCS,
+        blockAlias);
   }
 
   public LocatedBlock(ExtendedBlock b, DatanodeInfo[] locs,
@@ -115,7 +120,7 @@ public class LocatedBlock {
     this.blockAlias = blockAlias;
   }
 
-  private static DatanodeInfoWithStorage[] convert(
+  public static DatanodeInfoWithStorage[] convert(
       DatanodeInfo[] infos, String[] storageIDs, StorageType[] storageTypes) {
     if (null == infos) {
       return EMPTY_LOCS;

@@ -398,7 +398,7 @@ public class FSEditLogLoader {
           }
           LocatedBlock lb = FSDirAppendOp.prepareFileForAppend(fsNamesys, iip,
               addCloseOp.clientName, addCloseOp.clientMachine, false, false,
-              false);
+              false, oldFile.getStoragePolicyID());
           // add the op into retry cache if necessary
           if (toAddRetryCache) {
             HdfsFileStatus stat =
@@ -476,7 +476,7 @@ public class FSEditLogLoader {
       if (!file.isUnderConstruction()) {
         LocatedBlock lb = FSDirAppendOp.prepareFileForAppend(fsNamesys, iip,
             appendOp.clientName, appendOp.clientMachine, appendOp.newBlock,
-            false, false);
+            false, false, file.getStoragePolicyID());
         // add the op into retry cache if necessary
         if (toAddRetryCache) {
           HdfsFileStatus stat =

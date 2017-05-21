@@ -248,4 +248,13 @@ public abstract class ProvidedReplica extends ReplicaInfo {
     throw new UnsupportedOperationException(
         "ProvidedReplica does not yet support copy data");
   }
+  
+  public long getOffset() {
+    return fileOffset;
+  }
+
+  @Override
+  public boolean isProvided() {
+    return true;
+  }
 }

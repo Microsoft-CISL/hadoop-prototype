@@ -28,16 +28,21 @@ import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.BlockListAsLongs;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
+import org.apache.hadoop.hdfs.server.common.BlockAlias;
 import org.apache.hadoop.hdfs.server.common.FileRegion;
 import org.apache.hadoop.hdfs.server.common.FileRegionProvider;
 import org.apache.hadoop.hdfs.server.common.Storage.StorageDirectory;
 import org.apache.hadoop.hdfs.server.common.TextFileRegionProvider;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.ReplicaState;
+import org.apache.hadoop.hdfs.server.datanode.FinalizedProvidedReplica;
+import org.apache.hadoop.hdfs.server.datanode.ProvidedReplicaBeingWritten;
+import org.apache.hadoop.hdfs.server.datanode.ProvidedReplicaInPipeline;
 import org.apache.hadoop.hdfs.server.datanode.ReplicaInPipeline;
 import org.apache.hadoop.hdfs.server.datanode.ReplicaInfo;
 import org.apache.hadoop.hdfs.server.datanode.DirectoryScanner.ReportCompiler;
@@ -156,6 +161,7 @@ public class ProvidedVolumeImpl extends FsVolumeImpl {
       new ConcurrentHashMap<String, ProvidedBlockPoolSlice>();
 
   private ProvidedVolumeDF df;
+  private Configuration conf;
 
   ProvidedVolumeImpl(FsDatasetImpl dataset, String storageID,
       StorageDirectory sd, FileIoProvider fileIoProvider,
@@ -169,6 +175,7 @@ public class ProvidedVolumeImpl extends FsVolumeImpl {
         conf.getClass(DFSConfigKeys.DFS_PROVIDER_DF_CLASS,
             DefaultProvidedVolumeDF.class, ProvidedVolumeDF.class);
     df = ReflectionUtils.newInstance(dfClass, conf);
+    this.conf = conf;
   }
 
   @Override
@@ -227,8 +234,8 @@ public class ProvidedVolumeImpl extends FsVolumeImpl {
 
   @Override
   public void releaseReservedSpace(long bytesToRelease) {
-    throw new UnsupportedOperationException(
-        "ProvidedVolume does not yet support writes");
+    //TODO
+    return;
   }
 
   private static final ObjectWriter WRITER =
@@ -370,8 +377,33 @@ public class ProvidedVolumeImpl extends FsVolumeImpl {
   @Override
   ReplicaInfo addFinalizedBlock(String bpid, Block b,
       ReplicaInfo replicaInfo, long bytesReserved) throws IOException {
-    throw new UnsupportedOperationException(
-        "ProvidedVolume does not yet support writes");
+
+    // TODO do reservations matter for ProvidedVolumes
+    releaseReservedSpace(bytesReserved);
+
+    if (replicaInfo.getState() == ReplicaState.RBW) {
+      ProvidedReplicaBeingWritten rbw = (ProvidedReplicaBeingWritten) replicaInfo;
+      boolean success =
+          getFileRegionProvider(bpid).finalize(
+              new FileRegion(rbw.getBlockId(), new Path(rbw.getBlockURI()),
+                  rbw.getOffset(), rbw.getVisibleLength(), bpid,
+                  rbw.getGenerationStamp()));
+      if (!success) {
+        throw new IOException(
+            "Update of FileRegionProvider failed for Provided block " + b);
+      }
+      return new ReplicaBuilder(ReplicaState.FINALIZED)
+          .setBlockId(replicaInfo.getBlockId())
+          .setURI(rbw.getBlockURI())
+          .setOffset(rbw.getOffset())
+          .setLength(replicaInfo.getVisibleLength())
+          .setGenerationStamp(replicaInfo.getGenerationStamp())
+          .setFsVolume(this)
+          .setConf(conf).build();
+    } else {
+      throw new UnsupportedOperationException(
+          "State of replica " + replicaInfo + " is not RBW");
+    }
   }
 
   @Override
@@ -475,15 +507,29 @@ public class ProvidedVolumeImpl extends FsVolumeImpl {
 
   @Override
   public ReplicaInPipeline append(String bpid, ReplicaInfo replicaInfo,
-      long newGS, long estimateBlockLen) throws IOException {
-    throw new UnsupportedOperationException(
-        "ProvidedVolume does not yet support writes");
+      long newGS, long estimateBlockLen, BlockAlias blockAlias) throws IOException {
+
+    //TODO what to reserve for this Replica?
+    //TODO reserveSpaceForReplica(bytesReserved);
+    long bytesReserved = estimateBlockLen - replicaInfo.getNumBytes();
+
+    FileRegion region = (FileRegion) blockAlias;
+
+    return new ProvidedReplicaBeingWritten(replicaInfo.getBlockId(),
+            region.getPath().toUri(), region.getOffset(), replicaInfo.getNumBytes(),
+            newGS, this, conf, bytesReserved, Thread.currentThread());
   }
 
   @Override
-  public ReplicaInPipeline createRbw(ExtendedBlock b) throws IOException {
-    throw new UnsupportedOperationException(
-        "ProvidedVolume does not yet support writes");
+  public ReplicaInPipeline createRbw(ExtendedBlock b,
+      BlockAlias blockAlias) throws IOException {
+
+    FileRegion newRegion = (FileRegion) blockAlias;
+    //TODO what to reserve for this Replica?
+    return new ProvidedReplicaBeingWritten(b.getBlockId(),
+        newRegion.getPath().toUri(), newRegion.getOffset(), b.getNumBytes(),
+        b.getGenerationStamp(), this, conf, 0L, Thread.currentThread());
+
   }
 
   @Override

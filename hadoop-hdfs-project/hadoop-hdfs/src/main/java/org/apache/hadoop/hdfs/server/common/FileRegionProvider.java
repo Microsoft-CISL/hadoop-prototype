@@ -18,6 +18,9 @@
 
 package org.apache.hadoop.hdfs.server.common;
 
+import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
+import org.apache.hadoop.hdfs.server.datanode.ReplicaInfo;
+
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Iterator;
@@ -33,5 +36,10 @@ public class FileRegionProvider implements Iterable<FileRegion> {
 
   public void refresh() throws IOException {
     return;
+  }
+
+  public boolean finalize(FileRegion region) throws IOException {
+    //expects to be overridden!
+    return false;
   }
 }

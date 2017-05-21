@@ -62,4 +62,9 @@ public class ExternalReplica implements Replica {
   public boolean isOnTransientStorage() {
     return false;
   }
+
+  @Override
+  public boolean isProvided() {
+    return false;
+  }
 }

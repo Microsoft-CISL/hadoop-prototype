@@ -1058,8 +1058,11 @@ public class BlockManager implements BlockStatsMXBean {
     final long fileLength = bc.computeContentSummary(
         getStoragePolicySuite()).getLength();
     final long pos = fileLength - lastBlock.getNumBytes();
-    return createLocatedBlock(null, lastBlock, pos,
-        BlockTokenIdentifier.AccessMode.WRITE);
+    LocatedBlockBuilder builder = providedStorageMap.newLocatedBlocks(Integer.MAX_VALUE);
+
+    builder.addBlock(createLocatedBlockAndSetToken(builder, lastBlock, pos,
+        BlockTokenIdentifier.AccessMode.WRITE));
+    return builder.build().get(0);
   }
 
   /**
@@ -1102,7 +1105,7 @@ public class BlockManager implements BlockStatsMXBean {
     long endOff = offset + length;
     do {
       locatedBlocks.addBlock(
-          createLocatedBlock(locatedBlocks, blocks[curBlk], curPos, mode));
+          createLocatedBlockAndSetToken(locatedBlocks, blocks[curBlk], curPos, mode));
       curPos += blocks[curBlk].getNumBytes();
       curBlk++;
     } while (curPos < endOff 
@@ -1125,13 +1128,13 @@ public class BlockManager implements BlockStatsMXBean {
       curPos += blkSize;
     }
     
-    return createLocatedBlock(locatedBlocks, blocks[curBlk], curPos, mode);
+    return createLocatedBlockAndSetToken(locatedBlocks, blocks[curBlk], curPos, mode);
   }
 
-  private LocatedBlock createLocatedBlock(LocatedBlockBuilder locatedBlocks,
+  private LocatedBlock createLocatedBlockAndSetToken(LocatedBlockBuilder locatedBlocks,
       final BlockInfo blk, final long pos, final AccessMode mode)
           throws IOException {
-    final LocatedBlock lb = createLocatedBlock(locatedBlocks, blk, pos);
+    final LocatedBlock lb = createLocatedBlock(locatedBlocks, blk, pos, mode);
     if (mode != null) {
       setBlockToken(lb, mode);
     }
@@ -1140,7 +1143,8 @@ public class BlockManager implements BlockStatsMXBean {
 
   /** @return a LocatedBlock for the given block */
   private LocatedBlock createLocatedBlock(LocatedBlockBuilder locatedBlocks,
-      final BlockInfo blk, final long pos) throws IOException {
+      final BlockInfo blk, final long pos, final AccessMode mode)
+      throws IOException {
     if (!blk.isComplete()) {
       final BlockUnderConstructionFeature uc = blk.getUnderConstructionFeature();
       if (blk.isStriped()) {
@@ -1156,7 +1160,7 @@ public class BlockManager implements BlockStatsMXBean {
             blk);
         return null == locatedBlocks
             ? newLocatedBlock(eb, storages, pos, false)
-                : locatedBlocks.newLocatedBlock(eb, storages, pos, false);
+                : locatedBlocks.newLocatedBlock(eb, storages, pos, false, mode);
       }
     }
 
@@ -1222,7 +1226,7 @@ public class BlockManager implements BlockStatsMXBean {
     final ExtendedBlock eb = new ExtendedBlock(getBlockPoolId(), blk);
     return blockIndices == null
         ? null == locatedBlocks ? newLocatedBlock(eb, machines, pos, isCorrupt)
-            : locatedBlocks.newLocatedBlock(eb, machines, pos, isCorrupt)
+            : locatedBlocks.newLocatedBlock(eb, machines, pos, isCorrupt, mode)
         : newLocatedStripedBlock(eb, machines, blockIndices, pos, isCorrupt);
   }
 
@@ -1261,7 +1265,7 @@ public class BlockManager implements BlockStatsMXBean {
             : fileSizeExcludeBlocksUnderConstruction;
 
         locatedBlocks
-          .lastBlock(createLocatedBlock(locatedBlocks, last, lastPos, mode))
+          .lastBlock(createLocatedBlockAndSetToken(locatedBlocks, last, lastPos, mode))
           .lastComplete(last.isComplete());
       } else {
         locatedBlocks
@@ -2293,6 +2297,13 @@ public class BlockManager implements BlockStatsMXBean {
       }
       bmSafeMode.adjustBlockTotals(-numRemovedSafe, -numRemovedComplete);
     }
+  }
+
+  public LocatedBlock createLocatedBlocks(ExtendedBlock blk,
+      DatanodeInfo[] infos, AccessMode mode, byte storagePolicyID) {
+    return providedStorageMap.newLocatedBlocks(Integer.MAX_VALUE)
+        .newLocatedBlock(blk, infos, mode,
+            storagePolicyID == getStoragePolicy("PROVIDED").getId());
   }
 
   /**
@@ -3827,6 +3838,7 @@ public class BlockManager implements BlockStatsMXBean {
           "Got incremental block report from unregistered or dead node");
     }
     try {
+      LOG.info("Received incremental BR from " + node);
       processIncrementalBlockReport(node, srdb);
     } catch (Exception ex) {
       node.setForceRegistration(true);
@@ -3837,7 +3849,9 @@ public class BlockManager implements BlockStatsMXBean {
   private void processIncrementalBlockReport(final DatanodeDescriptor node,
       final StorageReceivedDeletedBlocks srdb) throws IOException {
     DatanodeStorageInfo storageInfo =
-        node.getStorageInfo(srdb.getStorage().getStorageID());
+            providedStorageMap.getStorage(node, srdb.getStorage());
+//    DatanodeStorageInfo storageInfo =
+//        node.getStorageInfo(srdb.getStorage().getStorageID());
     if (storageInfo == null) {
       // The DataNode is reporting an unknown storage. Usually the NN learns
       // about new storages from heartbeats but during NN restart we may

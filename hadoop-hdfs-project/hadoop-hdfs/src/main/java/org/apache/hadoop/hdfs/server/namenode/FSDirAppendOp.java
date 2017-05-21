@@ -31,6 +31,7 @@ import org.apache.hadoop.hdfs.protocol.HdfsFileStatus;
 import org.apache.hadoop.hdfs.protocol.LastBlockWithStatus;
 import org.apache.hadoop.hdfs.protocol.LocatedBlock;
 import org.apache.hadoop.hdfs.protocol.QuotaExceededException;
+import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfo;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockManager;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.BlockUCState;
@@ -139,7 +140,7 @@ final class FSDirAppendOp {
         }
       }
       lb = prepareFileForAppend(fsn, iip, holder, clientMachine, newBlock,
-          true, logRetryCache);
+          true, logRetryCache, file.getStoragePolicyID());
     } catch (IOException ie) {
       NameNode.stateChangeLog
           .warn("DIR* NameSystem.append: " + ie.getMessage());
@@ -176,8 +177,8 @@ final class FSDirAppendOp {
   static LocatedBlock prepareFileForAppend(final FSNamesystem fsn,
       final INodesInPath iip, final String leaseHolder,
       final String clientMachine, final boolean newBlock,
-      final boolean writeToEditLog, final boolean logRetryCache)
-      throws IOException {
+      final boolean writeToEditLog, final boolean logRetryCache,
+      byte storagePolicyID) throws IOException {
     assert fsn.hasWriteLock();
 
     final INodeFile file = iip.getLastINode().asFile();
@@ -207,7 +208,8 @@ final class FSDirAppendOp {
       BlockInfo lastBlock = file.getLastBlock();
       if (lastBlock != null) {
         ExtendedBlock blk = new ExtendedBlock(fsn.getBlockPoolId(), lastBlock);
-        ret = new LocatedBlock(blk, new DatanodeInfo[0]);
+        ret = fsn.getBlockManager().createLocatedBlocks(blk, new DatanodeInfo[0],
+                BlockTokenIdentifier.AccessMode.WRITE, storagePolicyID);
       }
     }
 

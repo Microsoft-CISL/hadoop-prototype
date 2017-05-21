@@ -107,6 +107,8 @@ public class TestNameNodeProvidedImplementation {
         BLOCKFILE.toString());
     conf.set(DFSConfigKeys.DFS_PROVIDED_BLOCK_MAP_DELIMITER, ",");
 
+    conf.set(DFSConfigKeys.DFS_PROVIDER_BLOCK_MAP_BASE_URI,
+        NAMEPATH.toString());
     File imageDir = new File(NAMEPATH.toUri());
     if (!imageDir.exists()) {
       LOG.info("Creating directory: " + imageDir);
@@ -362,6 +364,14 @@ public class TestNameNodeProvidedImplementation {
     return fs.getFileBlockLocations(path, 0, fileLen);
   }
 
+  private BlockLocation[] appendFile(Path path, int bytesToAdd, long fileLen)
+      throws IOException {
+    FileSystem fs = cluster.getFileSystem();
+    //create a sample file that is not provided
+    DFSTestUtil.appendFile(fs, path, bytesToAdd);
+    return fs.getFileBlockLocations(path, 0, fileLen + bytesToAdd);
+  }
+
   @Test
   public void testClusterWithEmptyImage() throws IOException {
     // start a cluster with 2 datanodes without any provided storage
@@ -377,5 +387,22 @@ public class TestNameNodeProvidedImplementation {
         (short) 2, 1024*1024, 1024*1024);
     assertEquals(1, locations.length);
     assertEquals(2, locations[0].getHosts().length);
+  }
+
+  @Test
+  public void testProvidedFileAppend() throws Exception {
+    conf.setClass(ImageWriter.Options.UGI_CLASS,
+            SingleUGIResolver.class, UGIResolver.class);
+    createImage(new FSTreeWalk(NAMEPATH, conf), NNDIRPATH,
+            FixedBlockResolver.class);
+    startCluster(NNDIRPATH, 1, new StorageType[] {StorageType.PROVIDED},
+            null, false);
+
+    int fileId = 2;
+    BlockLocation[] locations =
+        appendFile(new Path("/" + filePrefix + fileId + fileSuffix),
+            1024 * 1024, baseFileLen * fileId);
+    assertEquals(1, locations.length);
+    assertEquals(1, locations[0].getHosts().length);
   }
 }

@@ -23,6 +23,7 @@ import java.util.*;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.StorageType;
+import org.apache.hadoop.hdfs.server.common.BlockAlias;
 import org.apache.hadoop.util.AutoCloseableLock;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.BlockListAsLongs;
@@ -147,7 +148,7 @@ public class ExternalDatasetImpl implements FsDatasetSpi<ExternalVolumeImpl> {
 
   @Override
   public ReplicaHandler createRbw(StorageType storageType, String id,
-      ExtendedBlock b, boolean tf) throws IOException {
+      ExtendedBlock b, boolean tf, BlockAlias blockAlias) throws IOException {
     return new ReplicaHandler(new ExternalReplicaInPipeline(), null);
   }
 
@@ -166,6 +167,12 @@ public class ExternalDatasetImpl implements FsDatasetSpi<ExternalVolumeImpl> {
   @Override
   public ReplicaHandler append(ExtendedBlock b, long newGS,
       long expectedBlockLen) throws IOException {
+    return append(b, newGS, expectedBlockLen, null);
+  }
+
+  @Override
+  public ReplicaHandler append(ExtendedBlock b, long newGS,
+      long expectedBlockLen, BlockAlias blockAlias) throws IOException {
     return new ReplicaHandler(new ExternalReplicaInPipeline(), null);
   }
 

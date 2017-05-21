@@ -81,7 +81,7 @@ public class TestSimulatedFSDataset {
       // we pass expected len as zero, - fsdataset should use the sizeof actual
       // data written
       ReplicaInPipeline bInfo = fsdataset.createRbw(
-          StorageType.DEFAULT, null, b, false).getReplica();
+          StorageType.DEFAULT, null, b, false, null).getReplica();
       ReplicaOutputStreams out = bInfo.createStreams(true,
           DataChecksum.newDataChecksum(DataChecksum.Type.CRC32, 512));
       try {

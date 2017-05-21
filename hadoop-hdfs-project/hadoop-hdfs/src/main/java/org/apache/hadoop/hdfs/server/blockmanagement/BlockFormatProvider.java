@@ -24,6 +24,7 @@ import org.apache.hadoop.conf.Configurable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.protocol.Block;
+import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.server.common.BlockAlias;
 import org.apache.hadoop.hdfs.server.common.BlockFormat;
 import org.apache.hadoop.hdfs.server.common.TextFileRegionFormat;
@@ -93,5 +94,10 @@ public class BlockFormatProvider extends BlockProvider
         blockFormat.getReader(null);
     return reader.resolve(block);
   }
+
+  public BlockAlias newRegion(ExtendedBlock eb) {
+    return blockFormat.newRegion(eb);
+  }
+
 
 }

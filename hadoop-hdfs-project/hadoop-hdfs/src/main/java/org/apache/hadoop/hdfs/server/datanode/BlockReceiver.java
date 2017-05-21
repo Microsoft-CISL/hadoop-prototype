@@ -214,7 +214,7 @@ class BlockReceiver implements Closeable {
         switch (stage) {
         case PIPELINE_SETUP_CREATE:
           replicaHandler = datanode.data.createRbw(storageType, storageId,
-              block, allowLazyPersist);
+              block, allowLazyPersist, blockAlias);
           datanode.notifyNamenodeReceivingBlock(
               block, replicaHandler.getReplica().getStorageUuid());
           break;
@@ -224,7 +224,7 @@ class BlockReceiver implements Closeable {
           block.setGenerationStamp(newGs);
           break;
         case PIPELINE_SETUP_APPEND:
-          replicaHandler = datanode.data.append(block, newGs, minBytesRcvd);
+          replicaHandler = datanode.data.append(block, newGs, minBytesRcvd, blockAlias);
           block.setGenerationStamp(newGs);
           datanode.notifyNamenodeReceivingBlock(
               block, replicaHandler.getReplica().getStorageUuid());
@@ -1512,7 +1512,7 @@ class BlockReceiver implements Closeable {
       }
       
       datanode.closeBlock(block, null, replicaInfo.getStorageUuid(),
-          replicaInfo.isOnTransientStorage());
+          replicaInfo.isOnTransientStorage() || replicaInfo.isProvided());
       if (ClientTraceLog.isInfoEnabled() && isClient) {
         long offset = 0;
         DatanodeRegistration dnR = datanode.getDNRegistrationForBP(block

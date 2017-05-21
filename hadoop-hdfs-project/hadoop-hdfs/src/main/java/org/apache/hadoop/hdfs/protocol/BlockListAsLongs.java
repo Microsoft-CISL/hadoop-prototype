@@ -556,6 +556,12 @@ public abstract class BlockListAsLongs implements Iterable<BlockReportReplica> {
     public boolean isOnTransientStorage() {
       throw new UnsupportedOperationException();
     }
+
+    @Override
+    public boolean isProvided() {
+      return false;
+    }
+
     @Override
     public boolean equals(Object o) {
       return super.equals(o);

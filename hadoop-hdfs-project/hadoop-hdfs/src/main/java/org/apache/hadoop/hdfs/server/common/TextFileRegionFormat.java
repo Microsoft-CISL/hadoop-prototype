@@ -40,6 +40,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.protocol.Block;
+import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.io.MultipleIOException;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.CompressionCodecFactory;
@@ -59,18 +60,31 @@ public class TextFileRegionFormat
   private ReaderOptions readerOpts = TextReader.defaults();
   private WriterOptions writerOpts = TextWriter.defaults();
 
+  private Path basePath;
   public static final Logger LOG =
       LoggerFactory.getLogger(TextFileRegionFormat.class);
+
   @Override
   public void setConf(Configuration conf) {
     readerOpts.setConf(conf);
     writerOpts.setConf(conf);
     this.conf = conf;
+    basePath = new Path(conf.get(DFSConfigKeys.DFS_PROVIDER_BLOCK_MAP_BASE_URI,
+        DFSConfigKeys.DFS_PROVIDER_BLOCK_MAP_BASE_URI_DEFAULT));
   }
 
   @Override
   public Configuration getConf() {
     return conf;
+  }
+
+  @Override
+  public FileRegion newRegion(ExtendedBlock eb) {
+    //TODO how to determine the right path and the right offset for this region?
+    // for now every block will have it's own file in the base path!!
+    return new FileRegion(eb.getBlockId(),
+        new Path(basePath, eb.getBlockPoolId() + "-" + eb.getBlockId()), 0,
+        eb.getNumBytes(), eb.getBlockPoolId(), eb.getGenerationStamp());
   }
 
   @Override
@@ -103,6 +117,11 @@ public class TextFileRegionFormat
 
   @Override
   public Writer<FileRegion> getWriter(Writer.Options opts) throws IOException {
+    return  getWriter(opts, false);
+  }
+
+  private Writer<FileRegion> getWriter(Writer.Options opts, boolean append)
+      throws IOException {
     if (null == opts) {
       opts = writerOpts;
     }
@@ -111,26 +130,36 @@ public class TextFileRegionFormat
     }
     WriterOptions o = (WriterOptions) opts;
     Configuration cfg = (null == o.getConf())
-        ? new Configuration()
+            ? new Configuration()
             : o.getConf();
     if (o.codec != null) {
       CompressionCodecFactory factory = new CompressionCodecFactory(cfg);
       CompressionCodec codec = factory.getCodecByName(o.codec);
       String name = o.file.getName() + codec.getDefaultExtension();
       o.filename(new Path(o.file.getParent(), name));
-      return createWriter(o.file, codec, o.delim, cfg);
+      return createWriter(o.file, codec, o.delim, cfg, append);
     }
-    return createWriter(o.file, null, o.delim, conf);
+    return createWriter(o.file, null, o.delim, conf, append);
+  }
+
+  public Writer<FileRegion> append(Writer.Options opts) throws IOException {
+    return getWriter(opts, true);
   }
 
   @VisibleForTesting
   TextWriter createWriter(Path file, CompressionCodec codec, String delim,
-      Configuration cfg) throws IOException {
+      Configuration cfg, boolean append) throws IOException {
     FileSystem fs = file.getFileSystem(cfg);
     if (fs instanceof LocalFileSystem) {
       fs = ((LocalFileSystem)fs).getRaw();
     }
-    OutputStream tmp = fs.create(file);
+
+    OutputStream tmp;
+    if (append) {
+      tmp = fs.append(file);
+    } else {
+      tmp = fs.create(file);
+    }
     java.io.Writer out = new BufferedWriter(new OutputStreamWriter(
           (null == codec) ? tmp : codec.createOutputStream(tmp), "UTF-8"));
     return new TextWriter(out, delim);

@@ -19,8 +19,10 @@ package org.apache.hadoop.hdfs.server.blockmanagement;
 
 import java.io.IOException;
 import org.apache.hadoop.hdfs.protocol.Block;
+import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.server.blockmanagement.ProvidedStorageMap.ProvidedBlockList;
 import org.apache.hadoop.hdfs.server.common.BlockAlias;
+import org.apache.hadoop.hdfs.server.common.FileRegion;
 import org.apache.hadoop.hdfs.util.RwLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,4 +72,6 @@ public abstract class BlockProvider implements Iterable<BlockAlias> {
    * @return BlockAlias with information on how to read the block.
    */
   abstract BlockAlias resolve(Block block) throws IOException;
+
+  public abstract BlockAlias newRegion(ExtendedBlock eb);
 }

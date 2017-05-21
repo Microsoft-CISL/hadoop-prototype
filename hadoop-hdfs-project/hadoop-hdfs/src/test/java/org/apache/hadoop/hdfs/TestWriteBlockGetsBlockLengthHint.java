@@ -23,6 +23,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
+import org.apache.hadoop.hdfs.server.common.BlockAlias;
 import org.apache.hadoop.hdfs.server.datanode.*;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.FsDatasetSpi;
 import org.apache.hadoop.test.GenericTestUtils;
@@ -99,10 +100,11 @@ public class TestWriteBlockGetsBlockLengthHint {
      */
     @Override
     public synchronized ReplicaHandler createRbw(StorageType storageType,
-        String storageId, ExtendedBlock b, boolean allowLazyPersist)
+        String storageId, ExtendedBlock b, boolean allowLazyPersist,
+        BlockAlias alias)
         throws IOException {
       assertThat(b.getLocalBlock().getNumBytes(), is(EXPECTED_BLOCK_LENGTH));
-      return super.createRbw(storageType, storageId, b, allowLazyPersist);
+      return super.createRbw(storageType, storageId, b, allowLazyPersist, null);
     }
   }
 }

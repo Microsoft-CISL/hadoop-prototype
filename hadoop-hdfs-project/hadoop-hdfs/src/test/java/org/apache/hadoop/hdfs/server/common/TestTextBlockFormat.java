@@ -45,7 +45,7 @@ public class TestTextBlockFormat {
     TextFileRegionFormat mFmt = new TextFileRegionFormat() {
       @Override
       public TextWriter createWriter(Path file, CompressionCodec codec,
-          String delim, Configuration conf) throws IOException {
+          String delim, Configuration conf, boolean append) throws IOException {
         assertEquals(vp, file);
         if (null == vc) {
           assertNull(codec);

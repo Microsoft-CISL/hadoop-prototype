@@ -331,6 +331,9 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final String DFS_PROVIDED_BLOCK_MAP_READ_PATH = "dfs.provided.textprovider.read.path";
   public static final String DFS_PROVIDED_BLOCK_MAP_PATH_DEFAULT = "file:///tmp/blocks.csv";
 
+  public static final String DFS_PROVIDER_BLOCK_MAP_BASE_URI = "dfs.provided.textprovider.base.uri";
+  public static final String DFS_PROVIDER_BLOCK_MAP_BASE_URI_DEFAULT = "file:///tmp/";
+
   public static final String DFS_PROVIDED_BLOCK_MAP_CODEC = "dfs.provided.textprovider.read.codec";
   public static final String DFS_PROVIDED_BLOCK_MAP_WRITE_PATH  = "dfs.provided.textprovider.write.path";
 

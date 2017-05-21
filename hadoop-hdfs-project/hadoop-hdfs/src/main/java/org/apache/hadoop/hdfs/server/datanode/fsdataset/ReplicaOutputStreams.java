@@ -130,7 +130,11 @@ public class ReplicaOutputStreams implements Closeable {
    */
   public void flushDataOut() throws IOException {
     if (dataOut != null) {
-      fileIoProvider.flush(volume, dataOut);
+      if (fileIoProvider != null) {
+        fileIoProvider.flush(volume, dataOut);
+      } else {
+        dataOut.flush();
+      }
     }
   }
 
@@ -139,7 +143,11 @@ public class ReplicaOutputStreams implements Closeable {
    */
   public void flushChecksumOut() throws IOException {
     if (checksumOut != null) {
-      fileIoProvider.flush(volume, checksumOut);
+      if (fileIoProvider != null) {
+        fileIoProvider.flush(volume, checksumOut);
+      } else {
+        checksumOut.flush();
+      }
     }
   }
 
@@ -150,13 +158,17 @@ public class ReplicaOutputStreams implements Closeable {
 
   public void syncFileRangeIfPossible(long offset, long nbytes,
       int flags) throws NativeIOException {
-    fileIoProvider.syncFileRange(
-        volume, outFd, offset, nbytes, flags);
+    if (fileIoProvider != null) {
+      fileIoProvider.syncFileRange(
+              volume, outFd, offset, nbytes, flags);
+    }
   }
 
   public void dropCacheBehindWrites(String identifier,
       long offset, long len, int flags) throws NativeIOException {
-    fileIoProvider.posixFadvise(
-        volume, identifier, outFd, offset, len, flags);
+    if (fileIoProvider != null) {
+      fileIoProvider.posixFadvise(
+              volume, identifier, outFd, offset, len, flags);
+    }
   }
 }

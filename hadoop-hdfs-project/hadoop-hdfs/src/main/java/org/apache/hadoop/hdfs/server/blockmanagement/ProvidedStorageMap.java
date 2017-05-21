@@ -43,6 +43,7 @@ import org.apache.hadoop.hdfs.protocol.LocatedBlocks;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.BlockAliasProto;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.BlockAliasType;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.FileRegionProto;
+import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
 import org.apache.hadoop.hdfs.server.common.BlockAlias;
 import org.apache.hadoop.hdfs.server.common.FileRegion;
 import org.apache.hadoop.hdfs.server.protocol.DatanodeStorage;
@@ -155,8 +156,20 @@ public class ProvidedStorageMap {
     }
 
     @Override
+    LocatedBlock newLocatedBlock(ExtendedBlock eb, DatanodeInfo[] storages,
+        BlockTokenIdentifier.AccessMode mode, boolean isProvided) {
+      BlockAliasProto blockAliasProto = null;
+      if (isProvided) {
+        blockAliasProto = getBlockAlias(mode, eb);
+      }
+      return new LocatedBlock(eb, storages,
+          blockAliasProto == null ? null : blockAliasProto.toByteArray());
+    }
+
+    @Override
     LocatedBlock newLocatedBlock(ExtendedBlock eb,
-        DatanodeStorageInfo[] storages, long pos, boolean isCorrupt) {
+        DatanodeStorageInfo[] storages, long pos, boolean isCorrupt,
+        BlockTokenIdentifier.AccessMode mode) {
 
       DatanodeInfoWithStorage[] locs =
         new DatanodeInfoWithStorage[storages.length];
@@ -176,26 +189,37 @@ public class ProvidedStorageMap {
 
       BlockAliasProto blockAliasProto = null;
       if (hasProvidedLocations) {
-        FileRegion fileRegion;
-        try {
-          fileRegion = (FileRegion) blockProvider.resolve(eb.getLocalBlock());
-          FileRegionProto fileRegionProto = FileRegionProto.newBuilder()
-                  .setUri(fileRegion.getPath().toString())
-                  .setOffset(fileRegion.getOffset())
-                  .setLength(fileRegion.getLength())
-                  .setBpid(fileRegion.getBlockPoolId())
-                  .setGenStamp(fileRegion.getGenerationStamp())
-                  .build();
-          blockAliasProto = BlockAliasProto.newBuilder()
-                  .setFileRegion(fileRegionProto)
-                  .setType(BlockAliasType.FILE_REGION)
-                  .build();
-        } catch (IOException e) {
-          LOG.error("Could not resolve PROVIDED block: {}", e);
-        }
+        blockAliasProto = getBlockAlias(mode, eb);
       }
       return new LocatedBlock(eb, locs, sids, types, pos, isCorrupt, null,
           blockAliasProto == null? null : blockAliasProto.toByteArray());
+    }
+
+    private BlockAliasProto getBlockAlias(BlockTokenIdentifier.AccessMode mode, ExtendedBlock eb) {
+      FileRegion fileRegion;
+      try {
+        if (mode == BlockTokenIdentifier.AccessMode.WRITE) {
+          //involves creating a new FileRegion!
+          //TODO what should the file be named on the remote?
+          fileRegion = (FileRegion)  blockProvider.newRegion(eb);
+        } else {
+          fileRegion = (FileRegion) blockProvider.resolve(eb.getLocalBlock());
+        }
+        FileRegionProto fileRegionProto = FileRegionProto.newBuilder()
+                .setUri(fileRegion.getPath().toString())
+                .setOffset(fileRegion.getOffset())
+                .setLength(fileRegion.getLength())
+                .setBpid(fileRegion.getBlockPoolId())
+                .setGenStamp(fileRegion.getGenerationStamp())
+                .build();
+        return BlockAliasProto.newBuilder()
+                .setFileRegion(fileRegionProto)
+                .setType(BlockAliasType.FILE_REGION)
+                .build();
+      } catch (IOException e) {
+        LOG.error("Could not resolve PROVIDED block: {}", e);
+        return null;
+      }
     }
 
     @Override

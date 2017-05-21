@@ -22,6 +22,7 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 import org.apache.hadoop.hdfs.protocol.Block;
+import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.server.common.BlockFormat;
 import org.apache.hadoop.hdfs.server.common.BlockFormat.Reader.Options;
 import org.apache.hadoop.hdfs.server.common.FileRegion;
@@ -30,6 +31,11 @@ import org.apache.hadoop.hdfs.server.common.FileRegion;
  * Null sink for region information emitted from FSImage.
  */
 public class NullBlockFormat extends BlockFormat<FileRegion> {
+
+  @Override
+  public FileRegion newRegion(ExtendedBlock eb) {
+    return null;
+  }
 
   @Override
   public Reader<FileRegion> getReader(Options opts) throws IOException {
@@ -77,6 +83,11 @@ public class NullBlockFormat extends BlockFormat<FileRegion> {
         // do nothing
       }
     };
+  }
+
+  @Override
+  public Writer<FileRegion> append(Writer.Options opts) throws IOException {
+    return getWriter(opts);
   }
 
   @Override

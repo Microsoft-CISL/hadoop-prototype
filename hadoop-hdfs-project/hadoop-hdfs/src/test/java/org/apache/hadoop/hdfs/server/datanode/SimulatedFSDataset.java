@@ -41,6 +41,7 @@ import org.apache.commons.lang.ArrayUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.DF;
 import org.apache.hadoop.fs.StorageType;
+import org.apache.hadoop.hdfs.server.common.BlockAlias;
 import org.apache.hadoop.hdfs.server.datanode.checker.VolumeCheckResult;
 import org.apache.hadoop.util.AutoCloseableLock;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
@@ -75,19 +76,18 @@ import org.apache.hadoop.util.DataChecksum;
  * This class implements a simulated FSDataset.
  * 
  * Blocks that are created are recorded but their data (plus their CRCs) are
- *  discarded.
- * Fixed data is returned when blocks are read; a null CRC meta file is
- * created for such data.
- * 
- * This FSDataset does not remember any block information across its
- * restarts; it does however offer an operation to inject blocks
- *  (See the TestInectionForSImulatedStorage()
- * for a usage example of injection.
- * 
- * Note the synchronization is coarse grained - it is at each method. 
+ * discarded. Fixed data is returned when blocks are read; a null CRC meta file
+ * is created for such data.
+ *
+ * This FSDataset does not remember any block information across its restarts;
+ * it does however offer an operation to inject blocks (See the
+ * TestInectionForSImulatedStorage() for a usage example of injection.
+ *
+ * Note the synchronization is coarse grained - it is at each method.
  */
 public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
   public final static int BYTE_MASK = 0xff;
+
   static class Factory extends FsDatasetSpi.Factory<SimulatedFSDataset> {
     @Override
     public SimulatedFSDataset newInstance(DataNode datanode,
@@ -100,7 +100,7 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
       return true;
     }
   }
-  
+
   public static void setFactory(Configuration conf) {
     conf.set(DFSConfigKeys.DFS_DATANODE_FSDATASET_FACTORY_KEY,
         Factory.class.getName());
@@ -110,31 +110,31 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
     byte firstByte = (byte) (b.getBlockId() & BYTE_MASK);
     return (byte) ((firstByte + offsetInBlk % 29) & BYTE_MASK);
   }
-  
+
   public static final String CONFIG_PROPERTY_CAPACITY =
       "dfs.datanode.simulateddatastorage.capacity";
-  
-  public static final long DEFAULT_CAPACITY = 2L<<40; // 1 terabyte
-  
+
+  public static final long DEFAULT_CAPACITY = 2L << 40; // 1 terabyte
+
   public static final String CONFIG_PROPERTY_STATE =
       "dfs.datanode.simulateddatastorage.state";
   private static final DatanodeStorage.State DEFAULT_STATE =
       DatanodeStorage.State.NORMAL;
-  
+
   static final byte[] nullCrcFileData;
 
   private final AutoCloseableLock datasetLock;
   private final FileIoProvider fileIoProvider;
 
   static {
-    DataChecksum checksum = DataChecksum.newDataChecksum(
-        DataChecksum.Type.NULL, 16*1024 );
+    DataChecksum checksum =
+        DataChecksum.newDataChecksum(DataChecksum.Type.NULL, 16 * 1024);
     byte[] nullCrcHeader = checksum.getHeader();
-    nullCrcFileData =  new byte[2 + nullCrcHeader.length];
+    nullCrcFileData = new byte[2 + nullCrcHeader.length];
     nullCrcFileData[0] = (byte) ((BlockMetadataHeader.VERSION >>> 8) & 0xff);
     nullCrcFileData[1] = (byte) (BlockMetadataHeader.VERSION & 0xff);
     for (int i = 0; i < nullCrcHeader.length; i++) {
-      nullCrcFileData[i+2] = nullCrcHeader[i];
+      nullCrcFileData[i + 2] = nullCrcHeader[i];
     }
   }
 
@@ -146,12 +146,13 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
     private long bytesAcked;
     private long bytesRcvd;
     private boolean pinned = false;
+
     BInfo(String bpid, Block b, boolean forWriting) throws IOException {
       theBlock = new Block(b);
       if (theBlock.getNumBytes() < 0) {
         theBlock.setNumBytes(0);
       }
-      if (!storage.alloc(bpid, theBlock.getNumBytes())) { 
+      if (!storage.alloc(bpid, theBlock.getNumBytes())) {
         // expected length - actual length may
         // be more - we find out at finalize
         DataNode.LOG.warn("Lack of free storage on a block alloc");
@@ -166,7 +167,7 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
         oStream = null;
       }
     }
-    
+
     @Override
     public String getStorageUuid() {
       return storage.getStorageUuid();
@@ -180,7 +181,7 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
     @Override
     synchronized public long getNumBytes() {
       if (!finalized) {
-         return bytesRcvd;
+        return bytesRcvd;
       } else {
         return theBlock.getNumBytes();
       }
@@ -189,27 +190,27 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
     @Override
     synchronized public void setNumBytes(long length) {
       if (!finalized) {
-         bytesRcvd = length;
+        bytesRcvd = length;
       } else {
         theBlock.setNumBytes(length);
       }
     }
-    
+
     synchronized SimulatedInputStream getIStream() {
       if (!finalized) {
         // throw new IOException("Trying to read an unfinalized block");
-         return new SimulatedInputStream(oStream.getLength(), theBlock);
+        return new SimulatedInputStream(oStream.getLength(), theBlock);
       } else {
         return new SimulatedInputStream(theBlock.getNumBytes(), theBlock);
       }
     }
-    
+
     synchronized void finalizeBlock(String bpid, long finalSize)
         throws IOException {
       if (finalized) {
         throw new IOException(
-            "Finalizing a block that has already been finalized" + 
-            theBlock.getBlockId());
+            "Finalizing a block that has already been finalized"
+                + theBlock.getBlockId());
       }
       if (oStream == null) {
         DataNode.LOG.error("Null oStream on unfinalized block - bug");
@@ -217,23 +218,23 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
       }
 
       if (oStream.getLength() != finalSize) {
-        DataNode.LOG.warn("Size passed to finalize (" + finalSize +
-                    ")does not match what was written:" + oStream.getLength());
+        DataNode.LOG.warn("Size passed to finalize (" + finalSize
+            + ")does not match what was written:" + oStream.getLength());
         throw new IOException(
-          "Size passed to finalize does not match the amount of data written");
+            "Size passed to finalize does not match the amount of data written");
       }
-      // We had allocated the expected length when block was created; 
+      // We had allocated the expected length when block was created;
       // adjust if necessary
       long extraLen = finalSize - theBlock.getNumBytes();
       if (extraLen > 0) {
-        if (!storage.alloc(bpid,extraLen)) {
+        if (!storage.alloc(bpid, extraLen)) {
           DataNode.LOG.warn("Lack of free storage on a block alloc");
           throw new IOException("Creating block, no free space available");
         }
       } else {
         storage.free(bpid, -extraLen);
       }
-      theBlock.setNumBytes(finalSize);  
+      theBlock.setNumBytes(finalSize);
 
       finalized = true;
       oStream = null;
@@ -242,8 +243,8 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
 
     synchronized void unfinalizeBlock() throws IOException {
       if (!finalized) {
-        throw new IOException("Unfinalized a block that's not finalized "
-            + theBlock);
+        throw new IOException(
+            "Unfinalized a block that's not finalized " + theBlock);
       }
       finalized = false;
       oStream = new SimulatedOutputStream();
@@ -254,7 +255,7 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
     }
 
     SimulatedInputStream getMetaIStream() {
-      return new SimulatedInputStream(nullCrcFileData);  
+      return new SimulatedInputStream(nullCrcFileData);
     }
 
     synchronized boolean isFinalized() {
@@ -262,12 +263,11 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
     }
 
     @Override
-    synchronized public ReplicaOutputStreams createStreams(boolean isCreate, 
-        DataChecksum requestedChecksum)
-        throws IOException {
+    synchronized public ReplicaOutputStreams createStreams(boolean isCreate,
+        DataChecksum requestedChecksum) throws IOException {
       if (finalized) {
-        throw new IOException("Trying to write to a finalized replica "
-            + theBlock);
+        throw new IOException(
+            "Trying to write to a finalized replica " + theBlock);
       } else {
         SimulatedOutputStream crcStream = new SimulatedOutputStream();
         return new ReplicaOutputStreams(oStream, crcStream, requestedChecksum,
@@ -325,7 +325,8 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
     }
 
     @Override
-    public void setLastChecksumAndDataLen(long dataLength, byte[] lastChecksum) {
+    public void setLastChecksumAndDataLen(long dataLength,
+        byte[] lastChecksum) {
       oStream.setLength(dataLength);
     }
 
@@ -336,6 +337,11 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
 
     @Override
     public boolean isOnTransientStorage() {
+      return false;
+    }
+
+    @Override
+    public boolean isProvided() {
       return false;
     }
 
@@ -361,50 +367,50 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
     public void stopWriter(long xceiverStopTimeout) throws IOException {
     }
   }
-  
+
   /**
-   * Class is used for tracking block pool storage utilization similar
-   * to {@link BlockPoolSlice}
+   * Class is used for tracking block pool storage utilization similar to
+   * {@link BlockPoolSlice}
    */
   private static class SimulatedBPStorage {
-    private long used;    // in bytes
-    
+    private long used; // in bytes
+
     long getUsed() {
       return used;
     }
-    
+
     void alloc(long amount) {
       used += amount;
     }
-    
+
     void free(long amount) {
       used -= amount;
     }
-    
+
     SimulatedBPStorage() {
-      used = 0;   
+      used = 0;
     }
   }
-  
+
   /**
-   * Class used for tracking datanode level storage utilization similar
-   * to {@link FSVolumeSet}
+   * Class used for tracking datanode level storage utilization similar to
+   * {@link FSVolumeSet}
    */
   private static class SimulatedStorage {
     private final Map<String, SimulatedBPStorage> map =
-      new HashMap<String, SimulatedBPStorage>();
+        new HashMap<String, SimulatedBPStorage>();
 
-    private final long capacity;  // in bytes
+    private final long capacity; // in bytes
     private final DatanodeStorage dnStorage;
-    
+
     synchronized long getFree() {
       return capacity - getUsed();
     }
-    
+
     long getCapacity() {
       return capacity;
     }
-    
+
     synchronized long getUsed() {
       long used = 0;
       for (SimulatedBPStorage bpStorage : map.values()) {
@@ -412,11 +418,11 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
       }
       return used;
     }
-    
+
     synchronized long getBlockPoolUsed(String bpid) throws IOException {
       return getBPStorage(bpid).getUsed();
     }
-    
+
     int getNumFailedVolumes() {
       return 0;
     }
@@ -426,20 +432,20 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
         getBPStorage(bpid).alloc(amount);
         return true;
       }
-      return false;    
+      return false;
     }
-    
+
     synchronized void free(String bpid, long amount) throws IOException {
       getBPStorage(bpid).free(amount);
     }
-    
+
     SimulatedStorage(long cap, DatanodeStorage.State state) {
       capacity = cap;
       dnStorage = new DatanodeStorage(
-          "SimulatedStorage-" + DatanodeStorage.generateUuid(),
-          state, StorageType.DEFAULT);
+          "SimulatedStorage-" + DatanodeStorage.generateUuid(), state,
+          StorageType.DEFAULT);
     }
-    
+
     synchronized void addBlockPool(String bpid) {
       SimulatedBPStorage bpStorage = map.get(bpid);
       if (bpStorage != null) {
@@ -447,11 +453,11 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
       }
       map.put(bpid, new SimulatedBPStorage());
     }
-    
+
     synchronized void removeBlockPool(String bpid) {
       map.remove(bpid);
     }
-    
+
     private SimulatedBPStorage getBPStorage(String bpid) throws IOException {
       SimulatedBPStorage bpStorage = map.get(bpid);
       if (bpStorage == null) {
@@ -463,26 +469,25 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
     String getStorageUuid() {
       return dnStorage.getStorageID();
     }
-    
+
     DatanodeStorage getDnStorage() {
       return dnStorage;
     }
 
     synchronized StorageReport getStorageReport(String bpid) {
-      return new StorageReport(dnStorage,
-          false, getCapacity(), getUsed(), getFree(),
-          map.get(bpid).getUsed(), 0L);
+      return new StorageReport(dnStorage, false, getCapacity(), getUsed(),
+          getFree(), map.get(bpid).getUsed(), 0L);
     }
   }
-  
+
   static class SimulatedVolume implements FsVolumeSpi {
     private final SimulatedStorage storage;
     private final FileIoProvider fileIoProvider;
     private final DataNodeVolumeMetrics metrics;
 
     SimulatedVolume(final SimulatedStorage storage,
-                    final FileIoProvider fileIoProvider,
-                    final DataNodeVolumeMetrics metrics) {
+        final FileIoProvider fileIoProvider,
+        final DataNodeVolumeMetrics metrics) {
       this.storage = storage;
       this.fileIoProvider = fileIoProvider;
       this.metrics = metrics;
@@ -572,8 +577,8 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
     }
 
     @Override
-    public byte[] loadLastPartialChunkChecksum(
-        File blockFile, File metaFile) throws IOException {
+    public byte[] loadLastPartialChunkChecksum(File blockFile, File metaFile)
+        throws IOException {
       return null;
     }
 
@@ -601,19 +606,19 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
     }
   }
 
-  private final Map<String, Map<Block, BInfo>> blockMap
-      = new ConcurrentHashMap<String, Map<Block,BInfo>>();
+  private final Map<String, Map<Block, BInfo>> blockMap =
+      new ConcurrentHashMap<String, Map<Block, BInfo>>();
   private final SimulatedStorage storage;
   private final SimulatedVolume volume;
   private final String datanodeUuid;
   private final DataNode datanode;
-  
 
   public SimulatedFSDataset(DataStorage storage, Configuration conf) {
     this(null, storage, conf);
   }
 
-  public SimulatedFSDataset(DataNode datanode, DataStorage storage, Configuration conf) {
+  public SimulatedFSDataset(DataNode datanode, DataStorage storage,
+      Configuration conf) {
     this.datanode = datanode;
     if (storage != null) {
       for (int i = 0; i < storage.getNumStorageDirs(); ++i) {
@@ -631,10 +636,10 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
         conf.getEnum(CONFIG_PROPERTY_STATE, DEFAULT_STATE));
 
     // TODO: per volume id or path
-    DataNodeVolumeMetrics volumeMetrics = DataNodeVolumeMetrics.create(conf,
-        datanodeUuid);
-    this.volume = new SimulatedVolume(this.storage, this.fileIoProvider,
-        volumeMetrics);
+    DataNodeVolumeMetrics volumeMetrics =
+        DataNodeVolumeMetrics.create(conf, datanodeUuid);
+    this.volume =
+        new SimulatedVolume(this.storage, this.fileIoProvider, volumeMetrics);
     this.datasetLock = new AutoCloseableLock();
   }
 
@@ -642,7 +647,8 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
       Iterable<? extends Block> injectBlocks) throws IOException {
     ExtendedBlock blk = new ExtendedBlock();
     if (injectBlocks != null) {
-      for (Block b: injectBlocks) { // if any blocks in list is bad, reject list
+      for (Block b : injectBlocks) { // if any blocks in list is bad, reject
+                                     // list
         if (b == null) {
           throw new NullPointerException("Null blocks in block list");
         }
@@ -656,14 +662,14 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
         map = new TreeMap<>();
         blockMap.put(bpid, map);
       }
-      
-      for (Block b: injectBlocks) {
+
+      for (Block b : injectBlocks) {
         BInfo binfo = new BInfo(bpid, b, false);
         map.put(binfo.theBlock, binfo);
       }
     }
   }
-  
+
   /** Get a map for a given block pool Id */
   private Map<Block, BInfo> getMap(String bpid) throws IOException {
     final Map<Block, BInfo> map = blockMap.get(bpid);
@@ -684,7 +690,7 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
   }
 
   @Override // FsDatasetSpi
-  public synchronized void unfinalizeBlock(ExtendedBlock b) throws IOException{
+  public synchronized void unfinalizeBlock(ExtendedBlock b) throws IOException {
     if (isValidRbw(b)) {
       final Map<Block, BInfo> map = getMap(b.getBlockPoolId());
       map.remove(b.getLocalBlock());
@@ -707,7 +713,8 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
   @Override
   public synchronized Map<DatanodeStorage, BlockListAsLongs> getBlockReports(
       String bpid) {
-    return Collections.singletonMap(storage.getDnStorage(), getBlockReport(bpid));
+    return Collections.singletonMap(storage.getDnStorage(),
+        getBlockReport(bpid));
   }
 
   @Override // FsDatasetSpi
@@ -729,7 +736,7 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
   public long getBlockPoolUsed(String bpid) throws IOException {
     return storage.getBlockPoolUsed(bpid);
   }
-  
+
   @Override // FSDatasetMBean
   public long getRemaining() {
     return storage.getFree();
@@ -795,8 +802,8 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
   public void getMetrics(MetricsCollector collector, boolean all) {
     try {
       DataNodeMetricHelper.getMetrics(collector, this, "SimulatedFSDataset");
-    } catch (Exception e){
-        //ignore Exceptions
+    } catch (Exception e) {
+      // ignore Exceptions
     }
   }
 
@@ -820,14 +827,14 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
     return null;
   }
 
-  @Override 
+  @Override
   public synchronized String getReplicaString(String bpid, long blockId) {
     Replica r = null;
     final Map<Block, BInfo> map = blockMap.get(bpid);
     if (map != null) {
       r = map.get(new Block(blockId));
     }
-    return r == null? "null": r.toString();
+    return r == null ? "null" : r.toString();
   }
 
   @Override // FsDatasetSpi
@@ -851,7 +858,7 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
       return;
     }
     final Map<Block, BInfo> map = getMap(bpid);
-    for (Block b: invalidBlks) {
+    for (Block b : invalidBlks) {
       if (b == null) {
         continue;
       }
@@ -892,7 +899,7 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
 
   private BInfo getBInfo(final ExtendedBlock b) {
     final Map<Block, BInfo> map = blockMap.get(b.getBlockPoolId());
-    return map == null? null: map.get(b.getLocalBlock());
+    return map == null ? null : map.get(b.getLocalBlock());
   }
 
   @Override // {@link FsDatasetSpi}
@@ -903,27 +910,27 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
   /**
    * Check if a block is valid.
    *
-   * @param b           The block to check.
-   * @param minLength   The minimum length that the block must have.  May be 0.
-   * @param state       If this is null, it is ignored.  If it is non-null, we
-   *                        will check that the replica has this state.
+   * @param b The block to check.
+   * @param minLength The minimum length that the block must have. May be 0.
+   * @param state If this is null, it is ignored. If it is non-null, we will
+   *          check that the replica has this state.
    *
-   * @throws ReplicaNotFoundException          If the replica is not found
+   * @throws ReplicaNotFoundException If the replica is not found
    *
-   * @throws UnexpectedReplicaStateException   If the replica is not in the 
-   *                                             expected state.
+   * @throws UnexpectedReplicaStateException If the replica is not in the
+   *           expected state.
    */
   @Override // {@link FsDatasetSpi}
   public void checkBlock(ExtendedBlock b, long minLength, ReplicaState state)
       throws ReplicaNotFoundException, UnexpectedReplicaStateException {
     final BInfo binfo = getBInfo(b);
-    
+
     if (binfo == null) {
       throw new ReplicaNotFoundException(b);
     }
-    if ((state == ReplicaState.FINALIZED && !binfo.isFinalized()) ||
-        (state != ReplicaState.FINALIZED && binfo.isFinalized())) {
-      throw new UnexpectedReplicaStateException(b,state);
+    if ((state == ReplicaState.FINALIZED && !binfo.isFinalized())
+        || (state != ReplicaState.FINALIZED && binfo.isFinalized())) {
+      throw new UnexpectedReplicaStateException(b, state);
     }
   }
 
@@ -954,26 +961,32 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
   }
 
   @Override // FsDatasetSpi
-  public synchronized ReplicaHandler append(
-      ExtendedBlock b, long newGS, long expectedBlockLen) throws IOException {
+  public synchronized ReplicaHandler append(ExtendedBlock b, long newGS,
+      long expectedBlockLen) throws IOException {
+    return append(b, newGS, expectedBlockLen, null);
+  }
+
+  @Override // FsDatasetSpi
+  public synchronized ReplicaHandler append(ExtendedBlock b, long newGS,
+      long expectedBlockLen, BlockAlias alias) throws IOException {
     final Map<Block, BInfo> map = getMap(b.getBlockPoolId());
     BInfo binfo = map.get(b.getLocalBlock());
     if (binfo == null || !binfo.isFinalized()) {
-      throw new ReplicaNotFoundException("Block " + b
-          + " is not valid, and cannot be appended to.");
+      throw new ReplicaNotFoundException(
+          "Block " + b + " is not valid, and cannot be appended to.");
     }
     binfo.unfinalizeBlock();
     return new ReplicaHandler(binfo, null);
   }
 
   @Override // FsDatasetSpi
-  public synchronized ReplicaHandler recoverAppend(
-      ExtendedBlock b, long newGS, long expectedBlockLen) throws IOException {
+  public synchronized ReplicaHandler recoverAppend(ExtendedBlock b, long newGS,
+      long expectedBlockLen) throws IOException {
     final Map<Block, BInfo> map = getMap(b.getBlockPoolId());
     BInfo binfo = map.get(b.getLocalBlock());
     if (binfo == null) {
-      throw new ReplicaNotFoundException("Block " + b
-          + " is not valid, and cannot be appended to.");
+      throw new ReplicaNotFoundException(
+          "Block " + b + " is not valid, and cannot be appended to.");
     }
     if (binfo.isFinalized()) {
       binfo.unfinalizeBlock();
@@ -985,13 +998,13 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
   }
 
   @Override // FsDatasetSpi
-  public Replica recoverClose(ExtendedBlock b, long newGS, long expectedBlockLen)
-      throws IOException {
+  public Replica recoverClose(ExtendedBlock b, long newGS,
+      long expectedBlockLen) throws IOException {
     final Map<Block, BInfo> map = getMap(b.getBlockPoolId());
     BInfo binfo = map.get(b.getLocalBlock());
     if (binfo == null) {
-      throw new ReplicaNotFoundException("Block " + b
-          + " is not valid, and cannot be appended to.");
+      throw new ReplicaNotFoundException(
+          "Block " + b + " is not valid, and cannot be appended to.");
     }
     if (!binfo.isFinalized()) {
       binfo.finalizeBlock(b.getBlockPoolId(), binfo.getNumBytes());
@@ -1001,20 +1014,19 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
     map.put(binfo.theBlock, binfo);
     return binfo;
   }
-  
+
   @Override // FsDatasetSpi
-  public synchronized ReplicaHandler recoverRbw(
-      ExtendedBlock b, long newGS, long minBytesRcvd, long maxBytesRcvd)
-      throws IOException {
+  public synchronized ReplicaHandler recoverRbw(ExtendedBlock b, long newGS,
+      long minBytesRcvd, long maxBytesRcvd) throws IOException {
     final Map<Block, BInfo> map = getMap(b.getBlockPoolId());
     BInfo binfo = map.get(b.getLocalBlock());
-    if ( binfo == null) {
-      throw new ReplicaNotFoundException("Block " + b
-          + " does not exist, and cannot be appended to.");
+    if (binfo == null) {
+      throw new ReplicaNotFoundException(
+          "Block " + b + " does not exist, and cannot be appended to.");
     }
     if (binfo.isFinalized()) {
-      throw new ReplicaAlreadyExistsException("Block " + b
-          + " is valid, and cannot be written to.");
+      throw new ReplicaAlreadyExistsException(
+          "Block " + b + " is valid, and cannot be written to.");
     }
     map.remove(b);
     binfo.theBlock.setGenerationStamp(newGS);
@@ -1023,23 +1035,22 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
   }
 
   @Override // FsDatasetSpi
-  public synchronized ReplicaHandler createRbw(
-      StorageType storageType, String storageId, ExtendedBlock b,
-      boolean allowLazyPersist) throws IOException {
+  public synchronized ReplicaHandler createRbw(StorageType storageType,
+      String storageId, ExtendedBlock b, boolean allowLazyPersist,
+      BlockAlias blockAlias) throws IOException {
     return createTemporary(storageType, storageId, b);
   }
 
   @Override // FsDatasetSpi
-  public synchronized ReplicaHandler createTemporary(
-      StorageType storageType, String storageId, ExtendedBlock b)
-      throws IOException {
+  public synchronized ReplicaHandler createTemporary(StorageType storageType,
+      String storageId, ExtendedBlock b) throws IOException {
     if (isValidBlock(b)) {
-      throw new ReplicaAlreadyExistsException("Block " + b +
-          " is valid, and cannot be written to.");
+      throw new ReplicaAlreadyExistsException(
+          "Block " + b + " is valid, and cannot be written to.");
     }
     if (isValidRbw(b)) {
-      throw new ReplicaAlreadyExistsException("Block " + b +
-          " is being written, and cannot be written to.");
+      throw new ReplicaAlreadyExistsException(
+          "Block " + b + " is being written, and cannot be written to.");
     }
     final Map<Block, BInfo> map = getMap(b.getBlockPoolId());
     BInfo binfo = new BInfo(b.getBlockPoolId(), b.getLocalBlock(), true);
@@ -1052,12 +1063,12 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
     final Map<Block, BInfo> map = getMap(b.getBlockPoolId());
     BInfo binfo = map.get(b.getLocalBlock());
     if (binfo == null) {
-      throw new IOException("No such Block " + b );  
+      throw new IOException("No such Block " + b);
     }
-    
+
     return binfo.getIStream();
   }
-  
+
   @Override // FsDatasetSpi
   public synchronized InputStream getBlockInputStream(ExtendedBlock b,
       long seekOffset) throws IOException {
@@ -1074,16 +1085,16 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
   }
 
   @Override // FsDatasetSpi
-  public synchronized LengthInputStream getMetaDataInputStream(ExtendedBlock b
-      ) throws IOException {
+  public synchronized LengthInputStream getMetaDataInputStream(ExtendedBlock b)
+      throws IOException {
     final Map<Block, BInfo> map = getMap(b.getBlockPoolId());
     BInfo binfo = map.get(b.getLocalBlock());
     if (binfo == null) {
-      throw new IOException("No such Block " + b );  
+      throw new IOException("No such Block " + b);
     }
     if (!binfo.finalized) {
-      throw new IOException("Block " + b + 
-          " is being written, its meta cannot be read");
+      throw new IOException(
+          "Block " + b + " is being written, its meta cannot be read");
     }
     final SimulatedInputStream sin = binfo.getMetaIStream();
     return new LengthInputStream(sin, sin.getLength());
@@ -1095,12 +1106,10 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
 
   @Override // FsDatasetSpi
   public synchronized void adjustCrcChannelPosition(ExtendedBlock b,
-                                              ReplicaOutputStreams stream, 
-                                              int checksumSize)
-                                              throws IOException {
+      ReplicaOutputStreams stream, int checksumSize) throws IOException {
   }
 
-  /** 
+  /**
    * Simulated input and output streams
    *
    */
@@ -1109,9 +1118,10 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
     int currentPos = 0;
     byte[] data = null;
     Block theBlock = null;
-    
+
     /**
      * An input stream of size l with repeated bytes
+     *
      * @param l size of the stream
      * @param iRepeatedData byte that is repeated in the stream
      */
@@ -1119,16 +1129,17 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
       length = l;
       theBlock = b;
     }
-    
+
     /**
      * An input stream of of the supplied data
+     *
      * @param iData data to construct the stream
      */
     SimulatedInputStream(byte[] iData) {
       data = iData;
       length = data.length;
     }
-    
+
     /**
      * @return the lenght of the input stream
      */
@@ -1141,15 +1152,15 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
       if (currentPos >= length) {
         return -1;
       }
-      if (data !=null) {
+      if (data != null) {
         return data[currentPos++];
       } else {
         return simulatedByte(theBlock, currentPos++) & BYTE_MASK;
       }
     }
-    
+
     @Override
-    public int read(byte[] b) throws IOException { 
+    public int read(byte[] b) throws IOException {
 
       if (b == null) {
         throw new NullPointerException();
@@ -1160,7 +1171,7 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
       if (currentPos >= length) { // EOF
         return -1;
       }
-      int bytesRead = (int) Math.min(b.length, length-currentPos);
+      int bytesRead = (int) Math.min(b.length, length - currentPos);
       if (data != null) {
         System.arraycopy(data, currentPos, b, 0, bytesRead);
       } else { // all data is zero
@@ -1172,23 +1183,23 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
       return bytesRead;
     }
   }
-  
+
   /**
-   * This class implements an output stream that merely throws its data away, but records its
-   * length.
+   * This class implements an output stream that merely throws its data away,
+   * but records its length.
    *
    */
   static private class SimulatedOutputStream extends OutputStream {
     long length = 0;
-    
+
     /**
      * constructor for Simulated Output Steram
      */
     SimulatedOutputStream() {
     }
-    
+
     /**
-     * 
+     *
      * @return the length of the data created so far.
      */
     long getLength() {
@@ -1200,62 +1211,59 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
     void setLength(long length) {
       this.length = length;
     }
-    
+
     @Override
     public void write(int arg0) throws IOException {
       length++;
     }
-    
+
     @Override
     public void write(byte[] b) throws IOException {
       length += b.length;
     }
-    
+
     @Override
-    public void write(byte[] b,
-              int off,
-              int len) throws IOException  {
+    public void write(byte[] b, int off, int len) throws IOException {
       length += len;
     }
   }
-  
+
   private ObjectName mbeanName;
 
-
-  
   /**
    * Register the FSDataset MBean using the name
-   *        "hadoop:service=DataNode,name=FSDatasetState-<storageid>"
-   *  We use storage id for MBean name since a minicluster within a single
-   * Java VM may have multiple Simulated Datanodes.
+   * "hadoop:service=DataNode,name=FSDatasetState-<storageid>" We use storage id
+   * for MBean name since a minicluster within a single Java VM may have
+   * multiple Simulated Datanodes.
    */
   void registerMBean(final String storageId) {
     // We wrap to bypass standard mbean naming convetion.
-    // This wraping can be removed in java 6 as it is more flexible in 
+    // This wraping can be removed in java 6 as it is more flexible in
     // package naming for mbeans and their impl.
     StandardMBean bean;
 
     try {
-      bean = new StandardMBean(this,FSDatasetMBean.class);
-      mbeanName = MBeans.register("DataNode", "FSDatasetState-"+
-                                  storageId, bean);
+      bean = new StandardMBean(this, FSDatasetMBean.class);
+      mbeanName =
+          MBeans.register("DataNode", "FSDatasetState-" + storageId, bean);
     } catch (NotCompliantMBeanException e) {
       DataNode.LOG.warn("Error registering FSDatasetState MBean", e);
     }
- 
+
     DataNode.LOG.info("Registered FSDatasetState MBean");
   }
 
   @Override
   public void shutdown() {
-    if (mbeanName != null) MBeans.unregister(mbeanName);
+    if (mbeanName != null)
+      MBeans.unregister(mbeanName);
   }
 
   @Override
   public String getStorageInfo() {
     return "Simulated FSDataset-" + datanodeUuid;
   }
-  
+
   @Override
   public boolean hasEnoughResource() {
     return true;
@@ -1263,24 +1271,22 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
 
   @Override
   public ReplicaRecoveryInfo initReplicaRecovery(RecoveringBlock rBlock)
-  throws IOException {
+      throws IOException {
     ExtendedBlock b = rBlock.getBlock();
     final Map<Block, BInfo> map = getMap(b.getBlockPoolId());
     BInfo binfo = map.get(b.getLocalBlock());
     if (binfo == null) {
-      throw new IOException("No such Block " + b );  
+      throw new IOException("No such Block " + b);
     }
 
-    return new ReplicaRecoveryInfo(binfo.getBlockId(), binfo.getBytesOnDisk(), 
-        binfo.getGenerationStamp(), 
-        binfo.isFinalized()?ReplicaState.FINALIZED : ReplicaState.RBW);
+    return new ReplicaRecoveryInfo(binfo.getBlockId(), binfo.getBytesOnDisk(),
+        binfo.getGenerationStamp(),
+        binfo.isFinalized() ? ReplicaState.FINALIZED : ReplicaState.RBW);
   }
 
   @Override // FsDatasetSpi
   public Replica updateReplicaUnderRecovery(ExtendedBlock oldBlock,
-                                        long recoveryId,
-                                        long newBlockId,
-                                        long newlength) throws IOException {
+      long recoveryId, long newBlockId, long newlength) throws IOException {
     return getMap(oldBlock.getBlockPoolId()).get(oldBlock.getLocalBlock());
   }
 
@@ -1295,16 +1301,16 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
     blockMap.put(bpid, map);
     storage.addBlockPool(bpid);
   }
-  
+
   @Override // FsDatasetSpi
   public void shutdownBlockPool(String bpid) {
     blockMap.remove(bpid);
     storage.removeBlockPool(bpid);
   }
-  
+
   @Override // FsDatasetSpi
   public void deleteBlockPool(String bpid, boolean force) {
-     return;
+    return;
   }
 
   @Override
@@ -1318,8 +1324,8 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
     if (r == null) {
       throw new IOException("Block not found, temporary=" + temporary);
     } else if (r.isFinalized()) {
-      throw new IOException("Replica already finalized, temporary="
-          + temporary + ", r=" + r);
+      throw new IOException(
+          "Replica already finalized, temporary=" + temporary + ", r=" + r);
     }
     return r;
   }
@@ -1362,22 +1368,20 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
   }
 
   @Override
-  public void addVolume(
-      final StorageLocation location,
+  public void addVolume(final StorageLocation location,
       final List<NamespaceInfo> nsInfos) throws IOException {
     throw new UnsupportedOperationException();
   }
 
   @Override
   public DatanodeStorage getStorage(final String storageUuid) {
-    return storageUuid.equals(storage.getStorageUuid()) ?
-        storage.dnStorage :
-        null;
+    return storageUuid.equals(storage.getStorageUuid()) ? storage.dnStorage
+        : null;
   }
 
   @Override
   public StorageReport[] getStorageReports(String bpid) {
-    return new StorageReport[] {storage.getStorageReport(bpid)};
+    return new StorageReport[] { storage.getStorageReport(bpid) };
   }
 
   @Override
@@ -1424,17 +1428,17 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
     // TODO Auto-generated method stub
     return null;
   }
-  
+
   @Override
   public void setPinning(ExtendedBlock b) throws IOException {
     blockMap.get(b.getBlockPoolId()).get(b.getLocalBlock()).pinned = true;
   }
-  
+
   @Override
   public boolean getPinning(ExtendedBlock b) throws IOException {
     return blockMap.get(b.getBlockPoolId()).get(b.getLocalBlock()).pinned;
   }
-  
+
   @Override
   public boolean isDeletingBlock(String bpid, long blockId) {
     throw new UnsupportedOperationException();
@@ -1451,4 +1455,3 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
     return datasetLock.acquire();
   }
 }
-

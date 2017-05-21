@@ -46,6 +46,7 @@ import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.DF;
 import org.apache.hadoop.fs.StorageType;
+import org.apache.hadoop.hdfs.server.common.BlockAlias;
 import org.apache.hadoop.hdfs.server.datanode.FileIoProvider;
 import org.apache.hadoop.hdfs.server.datanode.BlockMetadataHeader;
 import org.apache.hadoop.hdfs.server.datanode.checker.VolumeCheckResult;
@@ -1166,7 +1167,7 @@ public class FsVolumeImpl implements FsVolumeSpi {
   }
 
   public ReplicaInPipeline append(String bpid, ReplicaInfo replicaInfo,
-      long newGS, long estimateBlockLen) throws IOException {
+      long newGS, long estimateBlockLen, BlockAlias blockAlias) throws IOException {
 
     long bytesReserved = estimateBlockLen - replicaInfo.getNumBytes();
     if (getAvailable() < bytesReserved) {
@@ -1204,7 +1205,8 @@ public class FsVolumeImpl implements FsVolumeSpi {
     return newReplicaInfo;
   }
 
-  public ReplicaInPipeline createRbw(ExtendedBlock b) throws IOException {
+  public ReplicaInPipeline createRbw(ExtendedBlock b,
+      BlockAlias blockAlias) throws IOException {
 
     File f = createRbwFile(b.getBlockPoolId(), b.getLocalBlock());
     LocalReplicaInPipeline newReplicaInfo = new ReplicaBuilder(ReplicaState.RBW)

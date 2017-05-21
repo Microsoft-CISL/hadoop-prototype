@@ -261,7 +261,7 @@ public class TestFsDatasetImpl {
       String bpid = BLOCK_POOL_IDS[NUM_BLOCKS % BLOCK_POOL_IDS.length];
       ExtendedBlock eb = new ExtendedBlock(bpid, i);
       try (ReplicaHandler replica =
-          dataset.createRbw(StorageType.DEFAULT, null, eb, false)) {
+          dataset.createRbw(StorageType.DEFAULT, null, eb, false, null)) {
       }
     }
     final String[] dataDirs =
@@ -569,7 +569,7 @@ public class TestFsDatasetImpl {
     class ResponderThread extends Thread {
       public void run() {
         try (ReplicaHandler replica = dataset
-            .createRbw(StorageType.DEFAULT, null, eb, false)) {
+            .createRbw(StorageType.DEFAULT, null, eb, false, null)) {
           LOG.info("CreateRbw finished");
           startFinalizeLatch.countDown();
 
