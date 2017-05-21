@@ -86,6 +86,7 @@ import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.BlockUCState;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.ReplicaState;
 import org.apache.hadoop.hdfs.server.namenode.CachedBlock;
 import org.apache.hadoop.hdfs.server.namenode.INode.BlocksMapUpdateInfo;
+import org.apache.hadoop.hdfs.server.namenode.INodeFile;
 import org.apache.hadoop.hdfs.server.namenode.INodesInPath;
 import org.apache.hadoop.hdfs.server.namenode.NameNode;
 import org.apache.hadoop.hdfs.server.namenode.Namesystem;
@@ -2304,6 +2305,10 @@ public class BlockManager implements BlockStatsMXBean {
     return providedStorageMap.newLocatedBlocks(Integer.MAX_VALUE)
         .newLocatedBlock(blk, infos, mode,
             storagePolicyID == getStoragePolicy("PROVIDED").getId());
+  }
+
+  public void allocatedBlockForProvidedFile(Block b, INodeFile file) {
+    providedStorageMap.allocatedBlockForProvidedFile(b, file);
   }
 
   /**

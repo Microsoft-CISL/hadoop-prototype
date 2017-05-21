@@ -38,6 +38,11 @@ public class NullBlockFormat extends BlockFormat<FileRegion> {
   }
 
   @Override
+  public void allocateBlockForFile(Block b, INodeFile file) {
+
+  }
+
+  @Override
   public Reader<FileRegion> getReader(Options opts) throws IOException {
     return new Reader<FileRegion>() {
       @Override

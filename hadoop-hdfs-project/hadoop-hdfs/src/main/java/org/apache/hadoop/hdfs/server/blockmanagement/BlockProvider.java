@@ -23,6 +23,7 @@ import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.server.blockmanagement.ProvidedStorageMap.ProvidedBlockList;
 import org.apache.hadoop.hdfs.server.common.BlockAlias;
 import org.apache.hadoop.hdfs.server.common.FileRegion;
+import org.apache.hadoop.hdfs.server.namenode.INodeFile;
 import org.apache.hadoop.hdfs.util.RwLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -74,4 +75,6 @@ public abstract class BlockProvider implements Iterable<BlockAlias> {
   abstract BlockAlias resolve(Block block) throws IOException;
 
   public abstract BlockAlias newRegion(ExtendedBlock eb);
+
+  public abstract void allocatedBlockForFile(Block b, INodeFile file);
 }

@@ -516,8 +516,9 @@ public class ProvidedVolumeImpl extends FsVolumeImpl {
     FileRegion region = (FileRegion) blockAlias;
 
     return new ProvidedReplicaBeingWritten(replicaInfo.getBlockId(),
-            region.getPath().toUri(), region.getOffset(), replicaInfo.getNumBytes(),
-            newGS, this, conf, bytesReserved, Thread.currentThread());
+        region.getPath().toUri(), region.getOffset() + region.getLength(),
+        replicaInfo.getNumBytes(), newGS, this, conf, bytesReserved,
+        Thread.currentThread());
   }
 
   @Override

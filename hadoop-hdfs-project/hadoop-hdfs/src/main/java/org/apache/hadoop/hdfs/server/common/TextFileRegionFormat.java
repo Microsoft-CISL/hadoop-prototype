@@ -27,7 +27,9 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -41,6 +43,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
+import org.apache.hadoop.hdfs.server.namenode.INodeFile;
 import org.apache.hadoop.io.MultipleIOException;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.CompressionCodecFactory;
@@ -64,6 +67,9 @@ public class TextFileRegionFormat
   public static final Logger LOG =
       LoggerFactory.getLogger(TextFileRegionFormat.class);
 
+  //TODO this is just in-memory now -- can grow large!
+  HashMap<Long, String> blockToPathMap;
+  HashMap<Long, Long> blockToOffsetMap;
   @Override
   public void setConf(Configuration conf) {
     readerOpts.setConf(conf);
@@ -71,6 +77,8 @@ public class TextFileRegionFormat
     this.conf = conf;
     basePath = new Path(conf.get(DFSConfigKeys.DFS_PROVIDER_BLOCK_MAP_BASE_URI,
         DFSConfigKeys.DFS_PROVIDER_BLOCK_MAP_BASE_URI_DEFAULT));
+    blockToPathMap = new LinkedHashMap<>();
+    blockToOffsetMap = new LinkedHashMap<>();
   }
 
   @Override
@@ -80,11 +88,35 @@ public class TextFileRegionFormat
 
   @Override
   public FileRegion newRegion(ExtendedBlock eb) {
-    //TODO how to determine the right path and the right offset for this region?
-    // for now every block will have it's own file in the base path!!
-    return new FileRegion(eb.getBlockId(),
-        new Path(basePath, eb.getBlockPoolId() + "-" + eb.getBlockId()), 0,
-        eb.getNumBytes(), eb.getBlockPoolId(), eb.getGenerationStamp());
+    FileRegion existingFR = null;
+    try {
+      existingFR = getReader(null).resolve(eb.getLocalBlock());
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+
+    if (existingFR != null) {
+      return existingFR;
+    } else {
+      //TODO how to determine the right path and the right offset for this region?
+      // for now every block will have it's own file in the base path!!
+      Path filePath;
+      long offset = 0;
+      if (blockToPathMap.containsKey(eb.getBlockId())) {
+        filePath = new Path(basePath, blockToPathMap.get(eb.getBlockId()));
+        offset = blockToOffsetMap.get(eb.getBlockId());
+      } else {
+        filePath = new Path(basePath, eb.getBlockPoolId() + "-" + eb.getBlockId());
+      }
+      return new FileRegion(eb.getBlockId(),
+              filePath, offset, 0, eb.getBlockPoolId(), eb.getGenerationStamp());
+    }
+  }
+
+  @Override
+  public void allocateBlockForFile(Block b, INodeFile file) {
+    blockToPathMap.put(b.getBlockId(), file.getFullPathName());
+    blockToOffsetMap.put(b.getBlockId(), file.computeFileSize());
   }
 
   @Override

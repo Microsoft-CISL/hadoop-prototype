@@ -46,6 +46,7 @@ import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.FileRegionProto;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
 import org.apache.hadoop.hdfs.server.common.BlockAlias;
 import org.apache.hadoop.hdfs.server.common.FileRegion;
+import org.apache.hadoop.hdfs.server.namenode.INodeFile;
 import org.apache.hadoop.hdfs.server.protocol.DatanodeStorage;
 import org.apache.hadoop.hdfs.server.protocol.DatanodeStorage.State;
 import org.apache.hadoop.hdfs.util.RwLock;
@@ -140,6 +141,10 @@ public class ProvidedStorageMap {
     return new ProvidedBlocksBuilder(maxValue);
   }
 
+  public void allocatedBlockForProvidedFile(Block b, INodeFile file) {
+    blockProvider.allocatedBlockForFile(b, file);
+  }
+
   /**
    * Builder used for creating {@link LocatedBlocks} when a block is provided.
    */
@@ -195,7 +200,8 @@ public class ProvidedStorageMap {
           blockAliasProto == null? null : blockAliasProto.toByteArray());
     }
 
-    private BlockAliasProto getBlockAlias(BlockTokenIdentifier.AccessMode mode, ExtendedBlock eb) {
+    private BlockAliasProto getBlockAlias(BlockTokenIdentifier.AccessMode mode,
+        ExtendedBlock eb) {
       FileRegion fileRegion;
       try {
         if (mode == BlockTokenIdentifier.AccessMode.WRITE) {

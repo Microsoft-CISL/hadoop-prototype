@@ -253,7 +253,7 @@ class FSDirWriteFileOp {
     // allocate new block, record block locations in INode.
     final BlockType blockType = pendingFile.getBlockType();
     // allocate new block, record block locations in INode.
-    Block newBlock = fsn.createNewBlock(blockType);
+    Block newBlock = fsn.createNewBlock(blockType, pendingFile);
     INodesInPath inodesInPath = INodesInPath.fromINode(pendingFile);
     saveAllocatedBlock(fsn, src, inodesInPath, newBlock, targets, blockType);
 

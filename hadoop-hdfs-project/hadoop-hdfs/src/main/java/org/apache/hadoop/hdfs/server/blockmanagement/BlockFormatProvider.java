@@ -18,6 +18,7 @@
 package org.apache.hadoop.hdfs.server.blockmanagement;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Iterator;
 
 import org.apache.hadoop.conf.Configurable;
@@ -28,6 +29,7 @@ import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.server.common.BlockAlias;
 import org.apache.hadoop.hdfs.server.common.BlockFormat;
 import org.apache.hadoop.hdfs.server.common.TextFileRegionFormat;
+import org.apache.hadoop.hdfs.server.namenode.INodeFile;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -97,6 +99,11 @@ public class BlockFormatProvider extends BlockProvider
 
   public BlockAlias newRegion(ExtendedBlock eb) {
     return blockFormat.newRegion(eb);
+  }
+
+  @Override
+  public void allocatedBlockForFile(Block b, INodeFile file) {
+    blockFormat.allocateBlockForFile(b, file);
   }
 
 

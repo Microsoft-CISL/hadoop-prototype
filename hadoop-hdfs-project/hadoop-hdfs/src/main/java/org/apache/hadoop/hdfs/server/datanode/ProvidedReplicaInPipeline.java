@@ -18,6 +18,7 @@
 package org.apache.hadoop.hdfs.server.datanode;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.ReplicaState;
@@ -168,6 +169,49 @@ public class ProvidedReplicaInPipeline extends ProvidedReplica
     return new ChunkChecksum(getBytesOnDisk(), lastChecksum);
   }
 
+  public class ProvidedOutputStream extends OutputStream {
+
+    private FSDataOutputStream out;
+    private Path newPath;
+    private Path originalPath;
+
+    public ProvidedOutputStream(FSDataOutputStream out, Path newPath, Path originalPath) {
+      this.out = out;
+      this.newPath = newPath;
+      this.originalPath = originalPath;
+    }
+
+    @Override
+    public void write(int i) throws IOException {
+      int[] bytes = {i};
+      out.write(i);
+    }
+
+    @Override
+    public void flush() throws IOException {
+      out.flush();
+    }
+
+    @Override
+    public void write(byte[] b) throws IOException {
+      out.write(b);
+    }
+
+    @Override
+    public void write(byte[] b, int off, int len) throws IOException {
+      out.write(b, off, len);
+    }
+
+
+    @Override
+    public void close() throws IOException {
+      out.close();
+      FileSystem remoteFS = FileSystem.newInstance(getBlockURI(), conf);
+
+      remoteFS.concat(this.originalPath, new Path[] {this.originalPath , this.newPath});
+    }
+  }
+
   @Override // ReplicaInPipeline
   public ReplicaOutputStreams createStreams(boolean isCreate,
       DataChecksum requestedChecksum) throws IOException {
@@ -190,7 +234,13 @@ public class ProvidedReplicaInPipeline extends ProvidedReplica
       FileSystem remoteFS = FileSystem.newInstance(getBlockURI(), conf);
       //TODO fileOffset is not required if we use append here!
       //TODO have to do an append here!!
+//      Path existingPath = new Path(getBlockURI());
+//      if (remoteFS.exists(existingPath)) {
+//        Path tempPath = new Path(getBlockURI()+".tmp." + getBlockId());
+//        blockOut = new ProvidedOutputStream(remoteFS.create(tempPath), tempPath, existingPath);
+//      } else {
       blockOut = remoteFS.create(new Path(getBlockURI()));
+      //}
       crcOut = remoteFS.create(new Path(getBlockURI().getPath() + ".meta." + getBlockId()));
       if (!isCreate) {
         // TODO For append or recovery of block
@@ -245,7 +295,7 @@ public class ProvidedReplicaInPipeline extends ProvidedReplica
 
   /**
    * Interrupt the writing thread and wait until it dies.
-   * 
+   *
    * @throws IOException the waiting is interrupted
    */
   @Override // ReplicaInPipeline

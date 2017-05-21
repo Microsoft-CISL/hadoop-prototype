@@ -2708,12 +2708,16 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
   /**
    * Create new block with a unique block id and a new generation stamp.
    * @param blockType is the file under striping or contiguous layout?
+   * @param file file for which the block needs to be allocated
    */
-  Block createNewBlock(BlockType blockType) throws IOException {
+  Block createNewBlock(BlockType blockType, INodeFile file) throws IOException {
     assert hasWriteLock();
     Block b = new Block(nextBlockId(blockType), 0, 0);
     // Increment the generation stamp for every new block.
     b.setGenerationStamp(nextGenerationStamp(false));
+    if(file.getStoragePolicyID() == blockManager.getStoragePolicy("PROVIDED").getId()) {
+      blockManager.allocatedBlockForProvidedFile(b, file);
+    }
     return b;
   }
 
