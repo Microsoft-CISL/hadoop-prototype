@@ -1828,45 +1828,10 @@ public class FSDirectory implements Closeable {
     }
   }
 
-  FileStatus getAuditFileInfo(INodesInPath iip)
-      throws IOException {
-    if (!namesystem.isAuditEnabled() || !namesystem.isExternalInvocation()) {
-      return null;
-    }
-
-    final INode inode = iip.getLastINode();
-    if (inode == null) {
-      return null;
-    }
-    final int snapshot = iip.getPathSnapshotId();
-
-    Path symlink = null;
-    long size = 0;     // length is zero for directories
-    short replication = 0;
-    long blocksize = 0;
-
-    if (inode.isFile()) {
-      final INodeFile fileNode = inode.asFile();
-      size = fileNode.computeFileSize(snapshot);
-      replication = fileNode.getFileReplication(snapshot);
-      blocksize = fileNode.getPreferredBlockSize();
-    } else if (inode.isSymlink()) {
-      symlink = new Path(
-          DFSUtilClient.bytes2String(inode.asSymlink().getSymlink()));
-    }
-
-    return new FileStatus(
-        size,
-        inode.isDirectory(),
-        replication,
-        blocksize,
-        inode.getModificationTime(snapshot),
-        inode.getAccessTime(snapshot),
-        inode.getFsPermission(snapshot),
-        inode.getUserName(snapshot),
-        inode.getGroupName(snapshot),
-        symlink,
-        new Path(iip.getPath()));
+  HdfsFileStatus getAuditFileInfo(INodesInPath iip)
+          throws IOException {
+    return (namesystem.isAuditEnabled() && namesystem.isExternalInvocation())
+            ? FSDirStatAndListingOp.getFileInfo(this, iip, false) : null;
   }
 
   /**

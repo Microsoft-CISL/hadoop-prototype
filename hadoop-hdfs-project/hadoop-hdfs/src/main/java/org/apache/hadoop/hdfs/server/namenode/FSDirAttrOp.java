@@ -54,7 +54,7 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_STORAGE_POLICY_ENABLED_KE
 import static org.apache.hadoop.hdfs.server.common.HdfsServerConstants.XATTR_SATISFY_STORAGE_POLICY;
 
 public class FSDirAttrOp {
-  static FileStatus setPermission(
+  static HdfsFileStatus setPermission(
       FSDirectory fsd, final String src, FsPermission permission)
       throws IOException {
     if (FSDirectory.isExactReservedName(src)) {
@@ -74,7 +74,7 @@ public class FSDirAttrOp {
     return fsd.getAuditFileInfo(iip);
   }
 
-  static FileStatus setOwner(
+  static HdfsFileStatus setOwner(
       FSDirectory fsd, String src, String username, String group)
       throws IOException {
     if (FSDirectory.isExactReservedName(src)) {
@@ -104,7 +104,7 @@ public class FSDirAttrOp {
     return fsd.getAuditFileInfo(iip);
   }
 
-  static FileStatus setTimes(
+  static HdfsFileStatus setTimes(
       FSDirectory fsd, String src, long mtime, long atime)
       throws IOException {
     FSPermissionChecker pc = fsd.getPermissionChecker();
@@ -157,13 +157,13 @@ public class FSDirAttrOp {
     return isFile;
   }
 
-  static FileStatus unsetStoragePolicy(FSDirectory fsd, BlockManager bm,
+  static HdfsFileStatus unsetStoragePolicy(FSDirectory fsd, BlockManager bm,
       String src) throws IOException {
     return setStoragePolicy(fsd, bm, src,
         HdfsConstants.BLOCK_STORAGE_POLICY_ID_UNSPECIFIED, "unset");
   }
 
-  static FileStatus setStoragePolicy(FSDirectory fsd, BlockManager bm,
+  static HdfsFileStatus setStoragePolicy(FSDirectory fsd, BlockManager bm,
       String src, final String policyName) throws IOException {
     // get the corresponding policy and make sure the policy name is valid
     BlockStoragePolicy policy = bm.getStoragePolicy(policyName);
@@ -175,7 +175,7 @@ public class FSDirAttrOp {
     return setStoragePolicy(fsd, bm, src, policy.getId(), "set");
   }
 
-  static FileStatus setStoragePolicy(FSDirectory fsd, BlockManager bm,
+  static HdfsFileStatus setStoragePolicy(FSDirectory fsd, BlockManager bm,
       String src, final byte policyId, final String operation)
       throws IOException {
     if (!fsd.isStoragePolicyEnabled()) {
