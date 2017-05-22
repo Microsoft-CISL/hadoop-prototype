@@ -403,8 +403,9 @@ public class TestNameNodeProvidedImplementation {
     BlockLocation[] locations =
         appendFile(new Path("/" + filePrefix + fileId + fileSuffix), bytesToAdd,
             baseFileLen * fileId);
+    //corresponding local file
     File file =
         new File(new Path(NAMEPATH, filePrefix + fileId + fileSuffix).toUri());
-    //assertEquals(bytesToAdd + baseFileLen * fileId, file.length());
+    assertEquals(bytesToAdd + baseFileLen * fileId, file.length());
   }
 }

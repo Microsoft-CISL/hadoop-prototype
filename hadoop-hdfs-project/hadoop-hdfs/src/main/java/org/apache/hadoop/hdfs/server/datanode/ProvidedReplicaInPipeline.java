@@ -20,6 +20,7 @@ package org.apache.hadoop.hdfs.server.datanode;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.LocalFileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.ReplicaState;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.FsVolumeSpi;
@@ -175,9 +176,18 @@ public class ProvidedReplicaInPipeline extends ProvidedReplica
     private Path newPath;
     private Path originalPath;
 
-    public ProvidedOutputStream(FSDataOutputStream out, Path newPath, Path originalPath) {
-      this.out = out;
-      this.newPath = newPath;
+    private boolean supportsAppend;
+    public ProvidedOutputStream(Path originalPath) throws IOException {
+      FileSystem remoteFS = FileSystem.newInstance(getBlockURI(), conf);
+      if (remoteFS instanceof org.apache.hadoop.fs.LocalFileSystem) {
+        remoteFS = ((LocalFileSystem)remoteFS).getRaw();
+      }
+      try {
+         this.out = remoteFS.append(originalPath);
+      } catch (UnsupportedOperationException e) {
+        supportsAppend = false;
+        //TODO what do we do if append is not supported!
+      }
       this.originalPath = originalPath;
     }
 
@@ -205,10 +215,11 @@ public class ProvidedReplicaInPipeline extends ProvidedReplica
 
     @Override
     public void close() throws IOException {
-      out.close();
-      FileSystem remoteFS = FileSystem.newInstance(getBlockURI(), conf);
-
-      remoteFS.concat(this.originalPath, new Path[] {this.originalPath , this.newPath});
+      if (supportsAppend) {
+        out.close();
+      } else {
+        //TODO recover when append is not supported.
+      }
     }
   }
 
@@ -234,13 +245,12 @@ public class ProvidedReplicaInPipeline extends ProvidedReplica
       FileSystem remoteFS = FileSystem.newInstance(getBlockURI(), conf);
       //TODO fileOffset is not required if we use append here!
       //TODO have to do an append here!!
-//      Path existingPath = new Path(getBlockURI());
-//      if (remoteFS.exists(existingPath)) {
-//        Path tempPath = new Path(getBlockURI()+".tmp." + getBlockId());
-//        blockOut = new ProvidedOutputStream(remoteFS.create(tempPath), tempPath, existingPath);
-//      } else {
-      blockOut = remoteFS.create(new Path(getBlockURI()));
-      //}
+      Path existingPath = new Path(getBlockURI());
+      if (remoteFS.exists(existingPath)) {
+        blockOut = new ProvidedOutputStream(existingPath);
+      } else {
+        blockOut = remoteFS.create(new Path(getBlockURI()));
+      }
       crcOut = remoteFS.create(new Path(getBlockURI().getPath() + ".meta." + getBlockId()));
       if (!isCreate) {
         // TODO For append or recovery of block
