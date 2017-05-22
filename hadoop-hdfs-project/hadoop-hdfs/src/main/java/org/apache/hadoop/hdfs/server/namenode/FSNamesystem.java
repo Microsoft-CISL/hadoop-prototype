@@ -1741,7 +1741,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
    */
   void setPermission(String src, FsPermission permission) throws IOException {
     final String operationName = "setPermission";
-    FileStatus auditStat;
+    HdfsFileStatus auditStat;
     checkOperation(OperationCategory.WRITE);
     writeLock();
     try {
@@ -1755,7 +1755,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       writeUnlock(operationName);
     }
     getEditLog().logSync();
-    logAuditEvent(true, operationName, src, null, auditStat);
+    logAuditEvent(true, operationName, src, auditStat);
   }
 
   /**
@@ -1765,7 +1765,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
   void setOwner(String src, String username, String group)
       throws IOException {
     final String operationName = "setOwner";
-    FileStatus auditStat;
+    HdfsFileStatus auditStat;
     checkOperation(OperationCategory.WRITE);
     writeLock();
     try {
@@ -1779,7 +1779,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       writeUnlock(operationName);
     }
     getEditLog().logSync();
-    logAuditEvent(true, operationName, src, null, auditStat);
+    logAuditEvent(true, operationName, src, auditStat);
   }
 
   /**
@@ -1930,7 +1930,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
    */
   void setTimes(String src, long mtime, long atime) throws IOException {
     final String operationName = "setTimes";
-    FileStatus auditStat;
+    HdfsFileStatus auditStat;
     checkOperation(OperationCategory.WRITE);
     writeLock();
     try {
@@ -1944,7 +1944,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       writeUnlock(operationName);
     }
     getEditLog().logSync();
-    logAuditEvent(true, operationName, src, null, auditStat);
+    logAuditEvent(true, operationName, src, auditStat);
   }
 
   /**
@@ -2066,7 +2066,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
    */
   void setStoragePolicy(String src, String policyName) throws IOException {
     final String operationName = "setStoragePolicy";
-    FileStatus auditStat;
+    HdfsFileStatus auditStat;
     checkOperation(OperationCategory.WRITE);
     writeLock();
     try {
@@ -2081,7 +2081,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       writeUnlock(operationName);
     }
     getEditLog().logSync();
-    logAuditEvent(true, operationName, src, null, auditStat);
+    logAuditEvent(true, operationName, src, auditStat);
   }
 
   /**
@@ -2125,7 +2125,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
    */
   void unsetStoragePolicy(String src) throws IOException {
     final String operationName = "unsetStoragePolicy";
-    FileStatus auditStat;
+    HdfsFileStatus auditStat;
     checkOperation(OperationCategory.WRITE);
     writeLock();
     try {
@@ -2139,7 +2139,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       writeUnlock(operationName);
     }
     getEditLog().logSync();
-    logAuditEvent(true, operationName, src, null, auditStat);
+    logAuditEvent(true, operationName, src, auditStat);
   }
   /**
    * Get the storage policy for a file or a directory.
@@ -7011,7 +7011,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
                 boolean logRetryCache)
       throws IOException {
     final String operationName = "setXAttr";
-    FileStatus auditStat = null;
+    HdfsFileStatus auditStat = null;
     writeLock();
     try {
       checkOperation(OperationCategory.WRITE);
@@ -7024,7 +7024,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       writeUnlock(operationName);
     }
     getEditLog().logSync();
-    logAuditEvent(true, operationName, src, null, auditStat);
+    logAuditEvent(true, operationName, src, auditStat);
   }
 
   List<XAttr> getXAttrs(final String src, List<XAttr> xAttrs)
@@ -7067,7 +7067,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
   void removeXAttr(String src, XAttr xAttr, boolean logRetryCache)
       throws IOException {
     final String operationName = "removeXAttr";
-    FileStatus auditStat = null;
+    HdfsFileStatus auditStat = null;
     writeLock();
     try {
       checkOperation(OperationCategory.WRITE);
@@ -7080,7 +7080,7 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
       writeUnlock(operationName);
     }
     getEditLog().logSync();
-    logAuditEvent(true, operationName, src, null, auditStat);
+    logAuditEvent(true, operationName, src, auditStat);
   }
 
   void checkAccess(String src, FsAction mode) throws IOException {
