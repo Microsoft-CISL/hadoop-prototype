@@ -38,6 +38,7 @@ import org.apache.hadoop.fs.XAttrSetFlag;
 import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.XAttrHelper;
+import org.apache.hadoop.hdfs.protocol.HdfsFileStatus;
 import org.apache.hadoop.hdfs.protocol.IllegalECPolicyException;
 import org.apache.hadoop.hdfs.protocol.ErasureCodingPolicy;
 import org.apache.hadoop.hdfs.server.namenode.FSDirectory.DirOp;
@@ -105,9 +106,9 @@ final class FSDirErasureCodingOp {
    * @throws HadoopIllegalArgumentException if the policy is not enabled
    * @throws AccessControlException if the user does not have write access
    */
-  static FileStatus setErasureCodingPolicy(final FSNamesystem fsn,
-      final String srcArg, final String ecPolicyName,
-      final FSPermissionChecker pc, final boolean logRetryCache)
+  static HdfsFileStatus setErasureCodingPolicy(final FSNamesystem fsn,
+                                               final String srcArg, final String ecPolicyName,
+                                               final FSPermissionChecker pc, final boolean logRetryCache)
       throws IOException, AccessControlException {
     assert fsn.hasWriteLock();
 
@@ -183,7 +184,7 @@ final class FSDirErasureCodingOp {
    * @throws IOException
    * @throws AccessControlException if the user does not have write access
    */
-  static FileStatus unsetErasureCodingPolicy(final FSNamesystem fsn,
+  static HdfsFileStatus unsetErasureCodingPolicy(final FSNamesystem fsn,
       final String srcArg, final FSPermissionChecker pc,
       final boolean logRetryCache) throws IOException {
     assert fsn.hasWriteLock();

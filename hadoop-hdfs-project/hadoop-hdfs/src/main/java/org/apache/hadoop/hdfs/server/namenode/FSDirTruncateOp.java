@@ -26,6 +26,7 @@ import org.apache.hadoop.fs.UnresolvedLinkException;
 import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.BlockStoragePolicy;
+import org.apache.hadoop.hdfs.protocol.HdfsFileStatus;
 import org.apache.hadoop.hdfs.protocol.QuotaExceededException;
 import org.apache.hadoop.hdfs.protocol.SnapshotAccessControlException;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfo;
@@ -348,9 +349,9 @@ final class FSDirTruncateOp {
    */
   static class TruncateResult {
     private final boolean result;
-    private final FileStatus stat;
+    private final HdfsFileStatus stat;
 
-    public TruncateResult(boolean result, FileStatus stat) {
+    public TruncateResult(boolean result, HdfsFileStatus stat) {
       this.result = result;
       this.stat = stat;
     }
@@ -366,7 +367,7 @@ final class FSDirTruncateOp {
     /**
      * @return file information.
      */
-    FileStatus getFileStatus() {
+    HdfsFileStatus getFileStatus() {
       return stat;
     }
   }
