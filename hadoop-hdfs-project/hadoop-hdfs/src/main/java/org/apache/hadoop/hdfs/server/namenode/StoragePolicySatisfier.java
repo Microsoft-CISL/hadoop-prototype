@@ -43,6 +43,8 @@ import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfoStriped.StorageAnd
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockManager;
 import org.apache.hadoop.hdfs.server.blockmanagement.DatanodeDescriptor;
 import org.apache.hadoop.hdfs.server.blockmanagement.DatanodeStorageInfo;
+import org.apache.hadoop.hdfs.server.blockmanagement.ProvidedStorageMap;
+import org.apache.hadoop.hdfs.server.common.BlockAlias;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants;
 import org.apache.hadoop.hdfs.server.protocol.BlockStorageMovementCommand.BlockMovingInfo;
 import org.apache.hadoop.hdfs.server.protocol.BlocksStorageMovementResult;
@@ -308,6 +310,7 @@ public class StoragePolicySatisfier implements Runnable {
     }
     List<BlockMovingInfo> blockMovingInfos = new ArrayList<BlockMovingInfo>();
 
+    long offset = 0;
     for (int i = 0; i < blocks.length; i++) {
       BlockInfo blockInfo = blocks[i];
       List<StorageType> expectedStorageTypes;
@@ -343,7 +346,7 @@ public class StoragePolicySatisfier implements Runnable {
       if (!DFSUtil.removeOverlapBetweenStorageTypes(expectedStorageTypes,
           existing, true)) {
         boolean computeStatus = computeBlockMovingInfos(blockMovingInfos,
-            blockInfo, expectedStorageTypes, existing, storages);
+            blockInfo, expectedStorageTypes, existing, storages, offset, blockCollection);
         if (computeStatus
             && status != BlocksMovingAnalysisStatus.FEW_BLOCKS_TARGETS_PAIRED) {
           status = BlocksMovingAnalysisStatus.ALL_BLOCKS_TARGETS_PAIRED;
@@ -351,9 +354,10 @@ public class StoragePolicySatisfier implements Runnable {
           status = BlocksMovingAnalysisStatus.FEW_BLOCKS_TARGETS_PAIRED;
         }
       }
+      offset += blockInfo.getNumBytes();
     }
 
-    assignBlockMovingInfosToCoordinatorDn(blockCollection.getId(),
+    assignBlockMovingInfosToCoordinatorDn(blockCollection,
         blockMovingInfos, coordinatorNode);
     return status;
   }
@@ -375,13 +379,14 @@ public class StoragePolicySatisfier implements Runnable {
    *          - list to get existing storage types
    * @param storages
    *          - available storages
-   * @return false if some of the block locations failed to find target node to
+   * @param offset
+   *@param blockCollection @return false if some of the block locations failed to find target node to
    *         satisfy the storage policy, true otherwise
    */
   private boolean computeBlockMovingInfos(
-      List<BlockMovingInfo> blockMovingInfos, BlockInfo blockInfo,
-      List<StorageType> expectedStorageTypes, List<StorageType> existing,
-      DatanodeStorageInfo[] storages) {
+          List<BlockMovingInfo> blockMovingInfos, BlockInfo blockInfo,
+          List<StorageType> expectedStorageTypes, List<StorageType> existing,
+          DatanodeStorageInfo[] storages, long offset, BlockCollection blockCollection) {
     boolean foundMatchingTargetNodesForBlock = true;
     if (!DFSUtil.removeOverlapBetweenStorageTypes(expectedStorageTypes,
         existing, true)) {
@@ -425,12 +430,12 @@ public class StoragePolicySatisfier implements Runnable {
 
       foundMatchingTargetNodesForBlock |= findSourceAndTargetToMove(
           blockMovingInfos, blockInfo, sourceWithStorageMap,
-          expectedStorageTypes, locsForExpectedStorageTypes);
+          expectedStorageTypes, locsForExpectedStorageTypes, offset, blockCollection);
     }
     return foundMatchingTargetNodesForBlock;
   }
 
-  private void assignBlockMovingInfosToCoordinatorDn(long blockCollectionID,
+  private void assignBlockMovingInfosToCoordinatorDn(BlockCollection blockCollection,
       List<BlockMovingInfo> blockMovingInfos,
       DatanodeDescriptor coordinatorNode) {
 
@@ -460,9 +465,15 @@ public class StoragePolicySatisfier implements Runnable {
       return;
     }
 
+    //this is a backup!
+    boolean isBackup = blockCollection.getStoragePolicyID() == blockManager
+        .getStoragePolicy("PROVIDED").getId();
+    
+    Long blockCollectionID = blockCollection.getId();
     // 'BlockCollectionId' is used as the tracking ID. All the blocks under this
     // blockCollectionID will be added to this datanode.
-    coordinatorNode.addBlocksToMoveStorage(blockCollectionID, blockMovingInfos);
+    coordinatorNode.addBlocksToMoveStorage(blockCollectionID,
+        blockMovingInfos, isBackup);
   }
 
   /**
@@ -479,14 +490,16 @@ public class StoragePolicySatisfier implements Runnable {
    *          - Expecting storages to move
    * @param locsForExpectedStorageTypes
    *          - Available DNs for expected storage types
-   * @return false if some of the block locations failed to find target node to
+   * @param offset
+   *@param blockCollection @return false if some of the block locations failed to find target node to
    *         satisfy the storage policy
    */
   private boolean findSourceAndTargetToMove(
-      List<BlockMovingInfo> blockMovingInfos, BlockInfo blockInfo,
-      List<StorageTypeNodePair> sourceWithStorageList,
-      List<StorageType> expected,
-      StorageTypeNodeMap locsForExpectedStorageTypes) {
+          List<BlockMovingInfo> blockMovingInfos, BlockInfo blockInfo,
+          List<StorageTypeNodePair> sourceWithStorageList,
+          List<StorageType> expected,
+          StorageTypeNodeMap locsForExpectedStorageTypes,
+          long offset, BlockCollection blockCollection) {
     boolean foundMatchingTargetNodesForBlock = true;
     List<DatanodeInfo> sourceNodes = new ArrayList<>();
     List<StorageType> sourceStorageTypes = new ArrayList<>();
@@ -563,13 +576,14 @@ public class StoragePolicySatisfier implements Runnable {
     }
 
     blockMovingInfos.addAll(getBlockMovingInfos(blockInfo, sourceNodes,
-        sourceStorageTypes, targetNodes, targetStorageTypes));
+        sourceStorageTypes, targetNodes, targetStorageTypes, offset, blockCollection));
     return foundMatchingTargetNodesForBlock;
   }
 
   private List<BlockMovingInfo> getBlockMovingInfos(BlockInfo blockInfo,
       List<DatanodeInfo> sourceNodes, List<StorageType> sourceStorageTypes,
-      List<DatanodeInfo> targetNodes, List<StorageType> targetStorageTypes) {
+      List<DatanodeInfo> targetNodes, List<StorageType> targetStorageTypes,
+      long offset, BlockCollection blockCollection) {
     List<BlockMovingInfo> blkMovingInfos = new ArrayList<>();
     // No source-target node pair exists.
     if (sourceNodes.size() <= 0) {
@@ -581,7 +595,8 @@ public class StoragePolicySatisfier implements Runnable {
           targetNodes, targetStorageTypes, blkMovingInfos);
     } else {
       buildContinuousBlockMovingInfos(blockInfo, sourceNodes,
-          sourceStorageTypes, targetNodes, targetStorageTypes, blkMovingInfos);
+          sourceStorageTypes, targetNodes, targetStorageTypes, blkMovingInfos,
+          offset, blockCollection);
     }
     return blkMovingInfos;
   }
@@ -589,14 +604,30 @@ public class StoragePolicySatisfier implements Runnable {
   private void buildContinuousBlockMovingInfos(BlockInfo blockInfo,
       List<DatanodeInfo> sourceNodes, List<StorageType> sourceStorageTypes,
       List<DatanodeInfo> targetNodes, List<StorageType> targetStorageTypes,
-      List<BlockMovingInfo> blkMovingInfos) {
+      List<BlockMovingInfo> blkMovingInfos, long offset,
+      BlockCollection blockCollection) {
+
+    BlockAlias providedBlockAlias = null;
+    if (blockCollection.getStoragePolicyID() == blockManager
+        .getStoragePolicy("PROVIDED").getId()) {
+      //set provided policy on this BlockCollection
+      if (blockCollection instanceof INodeFile) {
+        INodeFile file = (INodeFile) blockCollection;
+        ProvidedStorageMap providedMap = blockManager.getProvidedStorageMap();
+        providedBlockAlias = providedMap.allocateBlockAlias(blockInfo, file,
+            offset, blockManager.getBlockPoolId());
+      } else{
+        LOG.warn("BlockCollection " + blockCollection + " is not an instance of INodeFile");
+      }
+    }
     Block blk = new Block(blockInfo.getBlockId(), blockInfo.getNumBytes(),
         blockInfo.getGenerationStamp());
     BlockMovingInfo blkMovingInfo = new BlockMovingInfo(blk,
         sourceNodes.toArray(new DatanodeInfo[sourceNodes.size()]),
         targetNodes.toArray(new DatanodeInfo[targetNodes.size()]),
         sourceStorageTypes.toArray(new StorageType[sourceStorageTypes.size()]),
-        targetStorageTypes.toArray(new StorageType[targetStorageTypes.size()]));
+        targetStorageTypes.toArray(new StorageType[targetStorageTypes.size()]),
+        providedBlockAlias);
     blkMovingInfos.add(blkMovingInfo);
   }
 

@@ -27,6 +27,7 @@ import java.util.Map;
 
 import com.google.protobuf.ByteString;
 
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.ha.HAServiceProtocol.HAServiceState;
 import org.apache.hadoop.hdfs.DFSUtilClient;
@@ -84,6 +85,8 @@ import org.apache.hadoop.hdfs.protocol.proto.HdfsServerProtos.StorageInfoProto;
 import org.apache.hadoop.hdfs.protocol.proto.JournalProtocolProtos.JournalInfoProto;
 import org.apache.hadoop.hdfs.security.token.block.BlockKey;
 import org.apache.hadoop.hdfs.security.token.block.ExportedBlockKeys;
+import org.apache.hadoop.hdfs.server.common.BlockAlias;
+import org.apache.hadoop.hdfs.server.common.FileRegion;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.NamenodeRole;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.NodeType;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.ReplicaState;
@@ -1185,6 +1188,7 @@ public class PBHelper {
 
     builder.setTrackID(blkStorageMovementCmd.getTrackID());
     builder.setBlockPoolId(blkStorageMovementCmd.getBlockPoolId());
+    builder.setIsBackup(blkStorageMovementCmd.isBackup());
     Collection<BlockMovingInfo> blockMovingInfos = blkStorageMovementCmd
         .getBlockMovingTasks();
     for (BlockMovingInfo blkMovingInfo : blockMovingInfos) {
@@ -1211,7 +1215,10 @@ public class PBHelper {
 
     StorageType[] targetStorageTypes = blkMovingInfo.getTargetStorageTypes();
     builder.setTargetStorageTypes(convertStorageTypesProto(targetStorageTypes));
-
+    if (blkMovingInfo.getBlockAlias() != null) {
+      builder.setBlockAlias(
+          convertBlockAliasToProto(blkMovingInfo.getBlockAlias()));
+    }
     return builder.build();
   }
 
@@ -1226,7 +1233,8 @@ public class PBHelper {
     return new BlockStorageMovementCommand(
         DatanodeProtocol.DNA_BLOCK_STORAGE_MOVEMENT,
         blkStorageMovementCmdProto.getTrackID(),
-        blkStorageMovementCmdProto.getBlockPoolId(), blockMovingInfos);
+        blkStorageMovementCmdProto.getBlockPoolId(),
+        blkStorageMovementCmdProto.getIsBackup(), blockMovingInfos);
   }
 
   private static BlockMovingInfo convertBlockMovingInfo(
@@ -1253,7 +1261,46 @@ public class PBHelper {
     StorageType[] targetStorageTypes = PBHelperClient.convertStorageTypes(
         targetStorageTypesProto.getStorageTypesList(),
         targetStorageTypesProto.getStorageTypesList().size());
+    BlockAlias blockAlias = null;
+    if (blockStoragePolicySatisfyProto.hasBlockAlias()) {
+      blockAlias = blockAliasFromProto(block.getBlockId(), blockStoragePolicySatisfyProto.getBlockAlias());
+    }
+
     return new BlockMovingInfo(block, sourceDnInfos, targetDnInfos,
-        srcStorageTypes, targetStorageTypes);
+        srcStorageTypes, targetStorageTypes, blockAlias);
+  }
+
+  public static BlockAlias blockAliasFromProto(long blockId,
+      HdfsProtos.BlockAliasProto blockAliasProto) {
+    if (blockAliasProto == null) {
+      return null;
+    }
+    switch (blockAliasProto.getType()) {
+    case FILE_REGION:
+      HdfsProtos.FileRegionProto frProto = blockAliasProto.getFileRegion();
+      FileRegion region = new FileRegion(blockId, new Path(frProto.getUri()),
+          frProto.getOffset(), frProto.getLength(), frProto.getBpid(),
+          frProto.getGenStamp());
+      return region;
+    default:
+      return null;
+    }
+  }
+
+  public static HdfsProtos.BlockAliasProto convertBlockAliasToProto(BlockAlias alias) {
+    if (alias instanceof FileRegion) {
+      FileRegion fileRegion = (FileRegion) alias;
+      HdfsProtos.FileRegionProto fileRegionProto = HdfsProtos.FileRegionProto
+          .newBuilder().setUri(fileRegion.getPath().toString())
+          .setOffset(fileRegion.getOffset()).setLength(fileRegion.getLength())
+          .setBpid(fileRegion.getBlockPoolId())
+          .setGenStamp(fileRegion.getGenerationStamp()).build();
+      return HdfsProtos.BlockAliasProto.newBuilder()
+          .setFileRegion(fileRegionProto)
+          .setType(HdfsProtos.BlockAliasType.FILE_REGION).build();
+    } else {
+      return null;
+    }
+
   }
 }

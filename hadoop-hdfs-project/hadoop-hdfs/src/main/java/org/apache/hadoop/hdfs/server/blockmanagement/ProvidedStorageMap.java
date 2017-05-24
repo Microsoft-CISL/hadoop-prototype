@@ -43,6 +43,7 @@ import org.apache.hadoop.hdfs.protocol.LocatedBlocks;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.BlockAliasProto;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.BlockAliasType;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.FileRegionProto;
+import org.apache.hadoop.hdfs.protocolPB.PBHelper;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
 import org.apache.hadoop.hdfs.server.common.BlockAlias;
 import org.apache.hadoop.hdfs.server.common.FileRegion;
@@ -145,6 +146,11 @@ public class ProvidedStorageMap {
     blockProvider.allocatedBlockForFile(b, file);
   }
 
+  public BlockAlias allocateBlockAlias(BlockInfo blockInfo, INodeFile file,
+                                       long offset, String blockPoolId) {
+    return blockProvider.allocateBlockAlias(blockInfo, file, offset, blockPoolId);
+  }
+
   /**
    * Builder used for creating {@link LocatedBlocks} when a block is provided.
    */
@@ -211,17 +217,7 @@ public class ProvidedStorageMap {
         } else {
           fileRegion = (FileRegion) blockProvider.resolve(eb.getLocalBlock());
         }
-        FileRegionProto fileRegionProto = FileRegionProto.newBuilder()
-                .setUri(fileRegion.getPath().toString())
-                .setOffset(fileRegion.getOffset())
-                .setLength(fileRegion.getLength())
-                .setBpid(fileRegion.getBlockPoolId())
-                .setGenStamp(fileRegion.getGenerationStamp())
-                .build();
-        return BlockAliasProto.newBuilder()
-                .setFileRegion(fileRegionProto)
-                .setType(BlockAliasType.FILE_REGION)
-                .build();
+        return PBHelper.convertBlockAliasToProto(fileRegion);
       } catch (IOException e) {
         LOG.error("Could not resolve PROVIDED block: {}", e);
         return null;

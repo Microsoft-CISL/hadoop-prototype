@@ -412,7 +412,7 @@ public class Dispatcher {
         Token<BlockTokenIdentifier> accessToken) throws IOException {
       new Sender(out).replaceBlock(eb, target.storageType, accessToken,
           source.getDatanodeInfo().getDatanodeUuid(), proxySource.datanode,
-          null);
+          null, null);
     }
 
     /** Check whether to continue waiting for response */

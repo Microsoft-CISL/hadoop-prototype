@@ -1727,6 +1727,7 @@ public class DatanodeManager {
       cmds.add(new BlockStorageMovementCommand(
           DatanodeProtocol.DNA_BLOCK_STORAGE_MOVEMENT,
           blkStorageMovementInfosBatch.getTrackID(), blockPoolId,
+          blkStorageMovementInfosBatch.isBackup(),
           blkStorageMovementInfosBatch.getBlockMovingInfo()));
     }
 

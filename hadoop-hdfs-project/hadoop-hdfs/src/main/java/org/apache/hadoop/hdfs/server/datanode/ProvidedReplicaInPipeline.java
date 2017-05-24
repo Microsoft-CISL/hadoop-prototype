@@ -186,6 +186,7 @@ public class ProvidedReplicaInPipeline extends ProvidedReplica
          this.out = remoteFS.append(originalPath);
       } catch (UnsupportedOperationException e) {
         supportsAppend = false;
+        throw new IOException("Remote FS does not support append; " + e);
         //TODO what do we do if append is not supported!
       }
       this.originalPath = originalPath;

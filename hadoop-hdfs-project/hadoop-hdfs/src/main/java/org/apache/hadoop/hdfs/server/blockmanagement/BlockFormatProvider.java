@@ -18,7 +18,6 @@
 package org.apache.hadoop.hdfs.server.blockmanagement;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Iterator;
 
 import org.apache.hadoop.conf.Configurable;
@@ -106,5 +105,10 @@ public class BlockFormatProvider extends BlockProvider
     blockFormat.allocateBlockForFile(b, file);
   }
 
+  @Override
+  public BlockAlias allocateBlockAlias(BlockInfo blockInfo, INodeFile file,
+      long offset, String blockPoolId) {
+    return blockFormat.allocateBlockAlias(blockInfo, file, offset, blockPoolId);
+  }
 
 }

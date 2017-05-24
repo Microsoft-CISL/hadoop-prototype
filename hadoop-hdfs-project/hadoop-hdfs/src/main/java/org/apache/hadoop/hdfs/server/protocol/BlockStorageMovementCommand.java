@@ -23,6 +23,7 @@ import java.util.Collection;
 import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.DatanodeInfo;
+import org.apache.hadoop.hdfs.server.common.BlockAlias;
 
 /**
  * A BlockStorageMovementCommand is an instruction to a DataNode to move the
@@ -46,25 +47,27 @@ import org.apache.hadoop.hdfs.protocol.DatanodeInfo;
 public class BlockStorageMovementCommand extends DatanodeCommand {
   private final long trackID;
   private final String blockPoolId;
+  private final boolean isBackup;
   private final Collection<BlockMovingInfo> blockMovingTasks;
 
   /**
    * Block storage movement command constructor.
-   *
-   * @param action
+   *  @param action
    *          protocol specific action
    * @param trackID
    *          unique identifier to monitor the given set of block movements
    * @param blockPoolId
-   *          block pool ID
+ *          block pool ID
+   * @param isBackup indicates if this command is for backup
    * @param blockMovingInfos
-   *          block to storage info that will be used for movement
    */
   public BlockStorageMovementCommand(int action, long trackID,
-      String blockPoolId, Collection<BlockMovingInfo> blockMovingInfos) {
+      String blockPoolId, boolean isBackup,
+      Collection<BlockMovingInfo> blockMovingInfos) {
     super(action);
     this.trackID = trackID;
     this.blockPoolId = blockPoolId;
+    this.isBackup = isBackup;
     this.blockMovingTasks = blockMovingInfos;
   }
 
@@ -83,6 +86,9 @@ public class BlockStorageMovementCommand extends DatanodeCommand {
     return blockPoolId;
   }
 
+  public boolean isBackup() {
+    return isBackup;
+  }
   /**
    * Returns the list of blocks to be moved.
    */
@@ -99,7 +105,7 @@ public class BlockStorageMovementCommand extends DatanodeCommand {
     private DatanodeInfo[] targetNodes;
     private StorageType[] sourceStorageTypes;
     private StorageType[] targetStorageTypes;
-
+    private BlockAlias blockAlias;
     /**
      * Block to storage info constructor.
      *
@@ -117,11 +123,19 @@ public class BlockStorageMovementCommand extends DatanodeCommand {
     public BlockMovingInfo(Block block,
         DatanodeInfo[] sourceDnInfos, DatanodeInfo[] targetDnInfos,
         StorageType[] srcStorageTypes, StorageType[] targetStorageTypes) {
+      this(block, sourceDnInfos, targetDnInfos, srcStorageTypes,
+          targetStorageTypes, null);
+    }
+
+    public BlockMovingInfo(Block block, DatanodeInfo[] sourceDnInfos,
+        DatanodeInfo[] targetDnInfos, StorageType[] srcStorageTypes,
+        StorageType[] targetStorageTypes, BlockAlias blockAlias) {
       this.blk = block;
       this.sourceNodes = sourceDnInfos;
       this.targetNodes = targetDnInfos;
       this.sourceStorageTypes = srcStorageTypes;
       this.targetStorageTypes = targetStorageTypes;
+      this.blockAlias = blockAlias;
     }
 
     public void addBlock(Block block) {
@@ -146,6 +160,10 @@ public class BlockStorageMovementCommand extends DatanodeCommand {
 
     public StorageType[] getSourceStorageTypes() {
       return sourceStorageTypes;
+    }
+
+    public BlockAlias getBlockAlias() {
+      return blockAlias;
     }
 
     @Override

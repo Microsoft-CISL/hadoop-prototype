@@ -185,7 +185,7 @@ public class TestStoragePolicySatisfyWorker {
       blockMovingInfos.add(blockMovingInfo);
       INode inode = cluster.getNamesystem().getFSDirectory().getINode(file);
       worker.processBlockMovingTasks(inode.getId(),
-          cluster.getNamesystem().getBlockPoolId(), blockMovingInfos);
+          cluster.getNamesystem().getBlockPoolId(), false, blockMovingInfos);
 
       waitForBlockMovementCompletion(worker, inode.getId(), 1, 30000);
     } finally {
@@ -231,7 +231,7 @@ public class TestStoragePolicySatisfyWorker {
       }
       INode inode = cluster.getNamesystem().getFSDirectory().getINode(file);
       worker.processBlockMovingTasks(inode.getId(),
-          cluster.getNamesystem().getBlockPoolId(), blockMovingInfos);
+          cluster.getNamesystem().getBlockPoolId(), false, blockMovingInfos);
       // Wait till results queue build up
       waitForBlockMovementResult(worker, inode.getId(), 30000);
       worker.dropSPSWork();

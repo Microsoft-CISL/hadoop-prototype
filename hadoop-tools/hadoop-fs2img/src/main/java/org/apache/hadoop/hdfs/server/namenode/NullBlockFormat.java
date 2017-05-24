@@ -23,6 +23,7 @@ import java.util.NoSuchElementException;
 
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
+import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfo;
 import org.apache.hadoop.hdfs.server.common.BlockFormat;
 import org.apache.hadoop.hdfs.server.common.BlockFormat.Reader.Options;
 import org.apache.hadoop.hdfs.server.common.FileRegion;
@@ -40,6 +41,11 @@ public class NullBlockFormat extends BlockFormat<FileRegion> {
   @Override
   public void allocateBlockForFile(Block b, INodeFile file) {
 
+  }
+
+  @Override
+  public FileRegion allocateBlockAlias(BlockInfo blockInfo, INodeFile file, long offset, String blockPoolId) {
+    return null;
   }
 
   @Override

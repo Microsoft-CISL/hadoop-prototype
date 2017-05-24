@@ -46,6 +46,7 @@ import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.ReleaseShortCirc
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.ShortCircuitShmRequestProto;
 import org.apache.hadoop.hdfs.protocolPB.PBHelperClient;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
+import org.apache.hadoop.hdfs.server.common.BlockAlias;
 import org.apache.hadoop.hdfs.server.datanode.CachingStrategy;
 import org.apache.hadoop.hdfs.shortcircuit.ShortCircuitShm.SlotId;
 import org.apache.hadoop.security.token.Token;
@@ -254,7 +255,8 @@ public class Sender implements DataTransferProtocol {
       final Token<BlockTokenIdentifier> blockToken,
       final String delHint,
       final DatanodeInfo source,
-      final String storageId) throws IOException {
+      final String storageId,
+      final byte[] blockAlias) throws IOException {
     OpReplaceBlockProto.Builder proto = OpReplaceBlockProto.newBuilder()
         .setHeader(DataTransferProtoUtil.buildBaseHeader(blk, blockToken))
         .setStorageType(PBHelperClient.convertStorageType(storageType))
@@ -263,7 +265,9 @@ public class Sender implements DataTransferProtocol {
     if (storageId != null) {
       proto.setStorageId(storageId);
     }
-
+    if (blockAlias != null) {
+      proto.setBlockAlias(PBHelperClient.getByteString(blockAlias));
+    }
     send(out, Op.REPLACE_BLOCK, proto.build());
   }
 

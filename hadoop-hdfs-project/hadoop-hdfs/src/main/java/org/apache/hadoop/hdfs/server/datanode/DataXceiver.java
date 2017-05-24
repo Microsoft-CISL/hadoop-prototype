@@ -49,6 +49,7 @@ import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.ShortCircuitShmR
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.Status;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.BlockAliasProto;
 import org.apache.hadoop.hdfs.protocol.proto.HdfsProtos.FileRegionProto;
+import org.apache.hadoop.hdfs.protocolPB.PBHelper;
 import org.apache.hadoop.hdfs.protocolPB.PBHelperClient;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
 import org.apache.hadoop.hdfs.server.common.BlockAlias;
@@ -1130,11 +1131,12 @@ class DataXceiver extends Receiver implements Runnable {
 
   @Override
   public void replaceBlock(final ExtendedBlock block,
-      final StorageType storageType, 
+      final StorageType storageType,
       final Token<BlockTokenIdentifier> blockToken,
       final String delHint,
       final DatanodeInfo proxySource,
-      final String storageId) throws IOException {
+      final String storageId,
+      final byte[] blockAlias) throws IOException {
     updateCurrentThreadName("Replacing block " + block + " from " + delHint);
     DataOutputStream replyOut = new DataOutputStream(getOutputStream());
     checkAccess(replyOut, true, block, blockToken,
@@ -1150,6 +1152,8 @@ class DataXceiver extends Receiver implements Runnable {
       sendResponse(ERROR, msg);
       return;
     }
+    final BlockAlias parsedBlockAlias = blockAliasFromProto(block.getBlockId(),
+            blockAlias);
 
     Socket proxySock = null;
     DataOutputStream proxyOut = null;
@@ -1159,7 +1163,9 @@ class DataXceiver extends Receiver implements Runnable {
     boolean IoeDuringCopyBlockOperation = false;
     try {
       // Move the block to different storage in the same datanode
-      if (proxySource.equals(datanode.getDatanodeId())) {
+      // unless the destination storage type is PROVIDED
+      if (proxySource.equals(datanode.getDatanodeId())
+          && storageType != StorageType.PROVIDED) {
         ReplicaInfo oldReplica = datanode.data.moveBlockAcrossStorage(block,
             storageType, storageId);
         if (oldReplica != null) {
@@ -1218,7 +1224,8 @@ class DataXceiver extends Receiver implements Runnable {
             proxyReply, proxySock.getRemoteSocketAddress().toString(),
             proxySock.getLocalSocketAddress().toString(),
             null, 0, 0, 0, "", null, datanode, remoteChecksum,
-            CachingStrategy.newDropBehind(), false, false, storageId, null));
+            CachingStrategy.newDropBehind(), false, false, storageId,
+            parsedBlockAlias));
         
         // receive a block
         blockReceiver.receiveBlock(null, null, replyOut, null, 
@@ -1455,16 +1462,6 @@ class DataXceiver extends Receiver implements Runnable {
       return null;
     }
 
-    switch(baProto.getType()) {
-    case FILE_REGION:
-      FileRegionProto frProto = baProto.getFileRegion();
-      FileRegion region = new FileRegion(blockId, new Path(frProto.getUri()),
-          frProto.getOffset(), frProto.getLength(), frProto.getBpid(),
-          frProto.getGenStamp());
-      return region;
-    default:
-      LOG.error("Unknown BlockAlias type in parsed byte array");
-      return null;
-    }
+    return PBHelper.blockAliasFromProto(blockId, baProto);
   }
 }

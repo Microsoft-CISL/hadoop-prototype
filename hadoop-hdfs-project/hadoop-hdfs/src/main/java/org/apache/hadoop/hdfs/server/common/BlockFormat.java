@@ -22,6 +22,7 @@ import java.io.IOException;
 
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
+import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfo;
 import org.apache.hadoop.hdfs.server.namenode.INodeFile;
 
 /**
@@ -32,6 +33,8 @@ public abstract class BlockFormat<T extends BlockAlias>  {
   public abstract T newRegion(ExtendedBlock eb);
 
   public abstract void allocateBlockForFile(Block b, INodeFile file);
+
+  public abstract T allocateBlockAlias(BlockInfo blockInfo, INodeFile file, long offset, String blockPoolId);
 
   /**
    * An abstract class that is used to read {@link BlockAlias}es

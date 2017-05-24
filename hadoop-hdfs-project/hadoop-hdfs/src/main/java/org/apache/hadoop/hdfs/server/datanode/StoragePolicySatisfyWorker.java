@@ -31,12 +31,14 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionService;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -60,7 +62,9 @@ import org.apache.hadoop.hdfs.protocol.datatransfer.Sender;
 import org.apache.hadoop.hdfs.protocol.datatransfer.sasl.DataEncryptionKeyFactory;
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.BlockOpResponseProto;
 import org.apache.hadoop.hdfs.protocol.proto.DataTransferProtos.Status;
+import org.apache.hadoop.hdfs.protocolPB.PBHelper;
 import org.apache.hadoop.hdfs.security.token.block.BlockTokenIdentifier;
+import org.apache.hadoop.hdfs.server.common.BlockAlias;
 import org.apache.hadoop.hdfs.server.protocol.BlockStorageMovementCommand.BlockMovingInfo;
 import org.apache.hadoop.hdfs.server.protocol.BlocksStorageMovementResult;
 import org.apache.hadoop.io.IOUtils;
@@ -90,6 +94,10 @@ public class StoragePolicySatisfyWorker {
   private final int moverThreads;
   private final ExecutorService moveExecutor;
   private final CompletionService<BlockMovementResult> moverCompletionService;
+
+  private final ExecutorService backupExecutor;
+  private final CompletionService<BackupMovementResult> backupCompletionService;
+
   private final BlocksMovementsStatusHandler handler;
   private final BlockStorageMovementTracker movementTracker;
   private Daemon movementTrackerThread;
@@ -104,7 +112,10 @@ public class StoragePolicySatisfyWorker {
     moverThreads = conf.getInt(DFSConfigKeys.DFS_MOVER_MOVERTHREADS_KEY,
         DFSConfigKeys.DFS_MOVER_MOVERTHREADS_DEFAULT);
     moveExecutor = initializeBlockMoverThreadPool(moverThreads);
+    backupExecutor = initializeBlockMoverThreadPool(moverThreads);
     moverCompletionService = new ExecutorCompletionService<>(moveExecutor);
+    backupCompletionService = new ExecutorCompletionService<>(backupExecutor);
+
     handler = new BlocksMovementsStatusHandler();
     movementTracker = new BlockStorageMovementTracker(moverCompletionService,
         handler);
@@ -184,30 +195,138 @@ public class StoragePolicySatisfyWorker {
    * block movement list and submit each block movement task asynchronously in a
    * separate thread. Each task will move the block replica to the target node &
    * wait for the completion.
-   *
-   * @param trackID
+   *  @param trackID
    *          unique tracking identifier
    * @param blockPoolID
    *          block pool ID
+   * @param isBackup
    * @param blockMovingInfos
-   *          list of blocks to be moved
    */
   public void processBlockMovingTasks(long trackID, String blockPoolID,
-      Collection<BlockMovingInfo> blockMovingInfos) {
+      boolean isBackup, Collection<BlockMovingInfo> blockMovingInfos) {
     LOG.debug("Received BlockMovingTasks {}", blockMovingInfos);
-    for (BlockMovingInfo blkMovingInfo : blockMovingInfos) {
-      assert blkMovingInfo.getSources().length == blkMovingInfo
-          .getTargets().length;
-      for (int i = 0; i < blkMovingInfo.getSources().length; i++) {
-        DatanodeInfo target = blkMovingInfo.getTargets()[i];
-        BlockMovingTask blockMovingTask = new BlockMovingTask(
-            trackID, blockPoolID, blkMovingInfo.getBlock(),
-            blkMovingInfo.getSources()[i], target,
-            blkMovingInfo.getSourceStorageTypes()[i],
-            blkMovingInfo.getTargetStorageTypes()[i]);
-        Future<BlockMovementResult> moveCallable = moverCompletionService
-            .submit(blockMovingTask);
-        movementTracker.addBlock(trackID, moveCallable);
+    if (isBackup) {
+      BackupTask backupTask =
+          new BackupTask(trackID, blockPoolID, blockMovingInfos);
+      Future<BackupMovementResult> backupCallable =
+          backupCompletionService.submit(backupTask);
+      //TODO add a backup tracker?
+    } else {
+      for (BlockMovingInfo blkMovingInfo : blockMovingInfos) {
+        assert blkMovingInfo.getSources().length == blkMovingInfo
+                .getTargets().length;
+        for (int i = 0; i < blkMovingInfo.getSources().length; i++) {
+          DatanodeInfo target = blkMovingInfo.getTargets()[i];
+          BlockMovingTask blockMovingTask = new BlockMovingTask(
+                  trackID, blockPoolID, blkMovingInfo.getBlock(),
+                  blkMovingInfo.getSources()[i], target,
+                  blkMovingInfo.getSourceStorageTypes()[i],
+                  blkMovingInfo.getTargetStorageTypes()[i]);
+          Future<BlockMovementResult> moveCallable = moverCompletionService
+                  .submit(blockMovingTask);
+          movementTracker.addBlock(trackID, moveCallable);
+        }
+      }
+    }
+  }
+
+  static class BackupMovementResult {
+    private long trackID;
+    private final BlockMovementStatus status;
+
+    public BackupMovementResult(long trackID, BlockMovementStatus status) {
+      this.trackID = trackID;
+      this.status = status;
+    }
+
+    long getTrackId() {
+      return trackID;
+    }
+
+    BlockMovementStatus getStatus() {
+      return status;
+    }
+
+  }
+
+  private class BackupTask implements  Callable<BackupMovementResult> {
+
+    private final long trackID;
+    private final String blockPoolID;
+    private Collection<BlockMovingInfo> blockMovingInfos;
+
+    BackupTask(long trackID, String blockPoolID,
+        Collection<BlockMovingInfo> blockMovingInfos) {
+      this.trackID = trackID;
+      this.blockPoolID = blockPoolID;
+      this.blockMovingInfos = blockMovingInfos;
+    }
+
+    @Override
+    public BackupMovementResult call() {
+      BlockMovementStatus status = backup();
+      return new BackupMovementResult(trackID, status);
+    }
+
+    private BlockMovementStatus backup() {
+      // Assumptions:
+      // (1) backup is done assuming that files can only be append to
+      // (2) All blocks belong to a file are part of the
+      // Collection<BlockMovingInfo> blockMovingInfos here -- This holds true as
+      // long the NN dispatches move operations for all blocks in a file
+      // in move command to the DN
+
+      //sort blocks by block id
+      Comparator<BlockMovingInfo> comparator = new Comparator<BlockMovingInfo>() {
+        @Override
+        public int compare(BlockMovingInfo left, BlockMovingInfo right) {
+          if (left.getBlock().getBlockId() < right.getBlock().getBlockId()) {
+            return -1;
+          } else if (left.getBlock().getBlockId() < right.getBlock().getBlockId()) {
+            return 1;
+          } else {
+            return  0;
+          }
+        }
+      };
+      List<BlockMovingInfo> sortedMoveList = new ArrayList<>(blockMovingInfos);
+      Collections.sort(sortedMoveList, comparator);
+
+      boolean success = true;
+      //schedule one block move at a time!!
+      for (int i = 0; i < sortedMoveList.size(); i++) {
+        BlockMovingInfo blkMovingInfo = sortedMoveList.get(i);
+        for (int source = 0; source < blkMovingInfo.getSources().length; source++) {
+          DatanodeInfo target = blkMovingInfo.getTargets()[source];
+          BlockMovingTask blockMovingTask =
+              new BlockMovingTask(trackID, blockPoolID,
+                  blkMovingInfo.getBlock(), blkMovingInfo.getSources()[source],
+                  target, blkMovingInfo.getSourceStorageTypes()[source],
+                  blkMovingInfo.getTargetStorageTypes()[source],
+                  blkMovingInfo.getBlockAlias());
+          Future<BlockMovementResult> moveCallable =
+              moverCompletionService.submit(blockMovingTask);
+          movementTracker.addBlock(trackID, moveCallable);
+          try {
+            //wait till move is done!
+            BlockMovementResult result = moveCallable.get();
+            if (result.getStatus() == BlockMovementStatus.DN_BLK_STORAGE_MOVEMENT_SUCCESS) {
+              success = success && true;
+            } else {
+              success = false;
+            }
+          } catch (InterruptedException | ExecutionException e) {
+            success = false;
+            LOG.warn("Exception in BlockMovingTask for block "
+                + blkMovingInfo.getBlock() + "; " + e);
+          }
+        }
+      }
+
+      if (success) {
+        return BlockMovementStatus.DN_BLK_STORAGE_MOVEMENT_SUCCESS;
+      } else {
+        return BlockMovementStatus.DN_BLK_STORAGE_MOVEMENT_FAILURE;
       }
     }
   }
@@ -224,10 +343,18 @@ public class StoragePolicySatisfyWorker {
     private final DatanodeInfo target;
     private final StorageType srcStorageType;
     private final StorageType targetStorageType;
+    private final BlockAlias blockAlias;
 
     BlockMovingTask(long trackID, String blockPoolID, Block block,
         DatanodeInfo source, DatanodeInfo target,
         StorageType srcStorageType, StorageType targetStorageType) {
+      this(trackID, blockPoolID, block, source, target, srcStorageType,
+          targetStorageType, null);
+    }
+
+    public BlockMovingTask(long trackID, String blockPoolID, Block block,
+        DatanodeInfo source, DatanodeInfo target, StorageType srcStorageType,
+        StorageType targetStorageType, BlockAlias blockAlias) {
       this.trackID = trackID;
       this.blockPoolID = blockPoolID;
       this.block = block;
@@ -235,6 +362,7 @@ public class StoragePolicySatisfyWorker {
       this.target = target;
       this.srcStorageType = srcStorageType;
       this.targetStorageType = targetStorageType;
+      this.blockAlias = blockAlias;
     }
 
     @Override
@@ -309,7 +437,8 @@ public class StoragePolicySatisfyWorker {
         Token<BlockTokenIdentifier> accessToken, DatanodeInfo srcDn,
         StorageType destinStorageType) throws IOException {
       new Sender(out).replaceBlock(eb, destinStorageType, accessToken,
-          srcDn.getDatanodeUuid(), srcDn, null);
+          srcDn.getDatanodeUuid(), srcDn, null,
+          PBHelper.convertBlockAliasToProto(blockAlias).toByteArray());
     }
 
     /** Receive a reportedBlock copy response from the input stream. */
@@ -406,7 +535,7 @@ public class StoragePolicySatisfyWorker {
      * Collect all the block movement results. Later this will be send to
      * namenode via heart beat.
      *
-     * @param results
+     * @param resultsPerTrackId
      *          result of all the block movements per trackId
      */
     void handle(List<BlockMovementResult> resultsPerTrackId) {

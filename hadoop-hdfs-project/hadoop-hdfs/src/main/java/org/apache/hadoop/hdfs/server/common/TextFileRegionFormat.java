@@ -43,6 +43,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
+import org.apache.hadoop.hdfs.server.blockmanagement.BlockInfo;
 import org.apache.hadoop.hdfs.server.namenode.INodeFile;
 import org.apache.hadoop.io.MultipleIOException;
 import org.apache.hadoop.io.compress.CompressionCodec;
@@ -117,6 +118,15 @@ public class TextFileRegionFormat
   public void allocateBlockForFile(Block b, INodeFile file) {
     blockToPathMap.put(b.getBlockId(), file.getFullPathName());
     blockToOffsetMap.put(b.getBlockId(), file.computeFileSize());
+  }
+
+  @Override
+  public FileRegion allocateBlockAlias(BlockInfo blockInfo, INodeFile file,
+      long offset, String blockPoolId) {
+    // remote file is just the local file name from a base directory!
+    Path filePath = new Path(basePath, file.getFullPathName());
+    return new FileRegion(blockInfo.getBlockId(), filePath, offset,
+        blockInfo.getNumBytes(), blockPoolId, blockInfo.getGenerationStamp());
   }
 
   @Override

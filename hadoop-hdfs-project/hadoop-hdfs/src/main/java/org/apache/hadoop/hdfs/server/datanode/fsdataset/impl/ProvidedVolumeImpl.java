@@ -40,9 +40,7 @@ import org.apache.hadoop.hdfs.server.common.FileRegionProvider;
 import org.apache.hadoop.hdfs.server.common.Storage.StorageDirectory;
 import org.apache.hadoop.hdfs.server.common.TextFileRegionProvider;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.ReplicaState;
-import org.apache.hadoop.hdfs.server.datanode.FinalizedProvidedReplica;
 import org.apache.hadoop.hdfs.server.datanode.ProvidedReplicaBeingWritten;
-import org.apache.hadoop.hdfs.server.datanode.ProvidedReplicaInPipeline;
 import org.apache.hadoop.hdfs.server.datanode.ReplicaInPipeline;
 import org.apache.hadoop.hdfs.server.datanode.ReplicaInfo;
 import org.apache.hadoop.hdfs.server.datanode.DirectoryScanner.ReportCompiler;
@@ -557,8 +555,8 @@ public class ProvidedVolumeImpl extends FsVolumeImpl {
 
   @Override
   public ReplicaInfo moveBlockToTmpLocation(ExtendedBlock block,
-      ReplicaInfo replicaInfo, int smallBufferSize,
-      Configuration conf) throws IOException {
+      ReplicaInfo replicaInfo, int smallBufferSize, Configuration conf)
+      throws IOException {
     throw new UnsupportedOperationException(
         "ProvidedVolume does not yet support writes");
   }

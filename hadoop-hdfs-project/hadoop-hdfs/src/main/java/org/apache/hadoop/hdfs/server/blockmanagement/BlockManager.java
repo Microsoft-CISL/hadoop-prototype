@@ -2349,6 +2349,10 @@ public class BlockManager implements BlockStatsMXBean {
     providedStorageMap.allocatedBlockForProvidedFile(b, file);
   }
 
+  public ProvidedStorageMap getProvidedStorageMap() {
+    return providedStorageMap;
+  }
+
   /**
    * StatefulBlockInfo is used to build the "toUC" list, which is a list of
    * updates to the information about under-construction blocks.

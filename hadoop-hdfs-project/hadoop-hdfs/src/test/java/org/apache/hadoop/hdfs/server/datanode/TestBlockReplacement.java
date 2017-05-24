@@ -394,7 +394,7 @@ public class TestBlockReplacement {
       DataOutputStream out = new DataOutputStream(sock.getOutputStream());
       new Sender(out).replaceBlock(block, targetStorageType,
           BlockTokenSecretManager.DUMMY_TOKEN, source.getDatanodeUuid(),
-          sourceProxy, null);
+          sourceProxy, null, null);
       out.flush();
       // receiveResponse
       DataInputStream reply = new DataInputStream(sock.getInputStream());

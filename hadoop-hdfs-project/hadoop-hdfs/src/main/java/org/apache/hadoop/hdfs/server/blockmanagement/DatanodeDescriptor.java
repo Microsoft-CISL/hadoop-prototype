@@ -1043,18 +1043,17 @@ public class DatanodeDescriptor extends DatanodeInfo {
 
   /**
    * Add the block infos which needs to move its storage locations.
-   *
-   * @param trackID
+   *  @param trackID
    *          - unique identifier which will be used for tracking the given set
    *          of blocks movement completion.
    * @param storageMismatchedBlocks
-   *          - storage mismatched block infos
+   * @param isBackup
    */
   public void addBlocksToMoveStorage(long trackID,
-      List<BlockMovingInfo> storageMismatchedBlocks) {
+      List<BlockMovingInfo> storageMismatchedBlocks, boolean isBackup) {
     synchronized (storageMovementBlocks) {
-      storageMovementBlocks.offer(
-          new BlockStorageMovementInfosBatch(trackID, storageMismatchedBlocks));
+      storageMovementBlocks.offer(new BlockStorageMovementInfosBatch(trackID,
+          storageMismatchedBlocks, isBackup));
     }
   }
 

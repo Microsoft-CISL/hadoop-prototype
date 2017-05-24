@@ -28,20 +28,20 @@ import org.apache.hadoop.hdfs.server.protocol.BlockStorageMovementCommand.BlockM
 public class BlockStorageMovementInfosBatch {
   private long trackID;
   private List<BlockMovingInfo> blockMovingInfos;
-
+  private boolean isBackup;
   /**
    * Constructor to create the block storage movement infos batch.
-   *
-   * @param trackID
+   *  @param trackID
    *          - unique identifier which will be used for tracking the given set
    *          of blocks movement.
    * @param blockMovingInfos
-   *          - list of block to storage infos.
+   * @param isBackup
    */
   public BlockStorageMovementInfosBatch(long trackID,
-      List<BlockMovingInfo> blockMovingInfos) {
+      List<BlockMovingInfo> blockMovingInfos, boolean isBackup) {
     this.trackID = trackID;
     this.blockMovingInfos = blockMovingInfos;
+    this.isBackup = isBackup;
   }
 
   public long getTrackID() {
@@ -52,10 +52,15 @@ public class BlockStorageMovementInfosBatch {
     return blockMovingInfos;
   }
 
+  public boolean isBackup() {
+    return isBackup;
+  }
+
   @Override
   public String toString() {
     return new StringBuilder().append("BlockStorageMovementInfosBatch(\n  ")
         .append("TrackID: ").append(trackID).append("  BlockMovingInfos: ")
-        .append(blockMovingInfos).append(")").toString();
+        .append(blockMovingInfos).append(")").append(" isBackup: ")
+        .append(isBackup).toString();
   }
 }

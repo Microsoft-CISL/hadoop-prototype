@@ -279,7 +279,8 @@ public abstract class Receiver implements DataTransferProtocol {
           PBHelperClient.convert(proto.getHeader().getToken()),
           proto.getDelHint(),
           PBHelperClient.convert(proto.getSource()),
-          proto.getStorageId());
+          proto.getStorageId(),
+          proto.hasBlockAlias() ? proto.getBlockAlias().toByteArray() : null);
     } finally {
       if (traceScope != null) traceScope.close();
     }

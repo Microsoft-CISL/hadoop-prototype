@@ -145,6 +145,7 @@ message OpReplaceBlockProto {
   required DatanodeInfoProto source = 3;
   optional StorageTypeProto storageType = 4 [default = DISK];
   optional string storageId = 5;
+  optional bytes blockAlias = 6;
 }
 
 message OpCopyBlockProto {
