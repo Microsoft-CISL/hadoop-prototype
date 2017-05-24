@@ -116,7 +116,8 @@ public class TextFileRegionFormat
 
   @Override
   public void allocateBlockForFile(Block b, INodeFile file) {
-    blockToPathMap.put(b.getBlockId(), file.getFullPathName());
+    //TODO have to append the base path properly!!
+    blockToPathMap.put(b.getBlockId(), file.getLocalName());
     blockToOffsetMap.put(b.getBlockId(), file.computeFileSize());
   }
 
@@ -124,7 +125,10 @@ public class TextFileRegionFormat
   public FileRegion allocateBlockAlias(BlockInfo blockInfo, INodeFile file,
       long offset, String blockPoolId) {
     // remote file is just the local file name from a base directory!
-    Path filePath = new Path(basePath, file.getFullPathName());
+    String fullPathName = file.getFullPathName();
+    //skip the initial "/" to get the remote path
+    String remoteFileSubPath = fullPathName.substring(1);
+    Path filePath = new Path(basePath, remoteFileSubPath );
     return new FileRegion(blockInfo.getBlockId(), filePath, offset,
         blockInfo.getNumBytes(), blockPoolId, blockInfo.getGenerationStamp());
   }

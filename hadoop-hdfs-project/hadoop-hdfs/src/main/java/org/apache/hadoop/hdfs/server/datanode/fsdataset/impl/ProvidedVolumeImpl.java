@@ -41,6 +41,7 @@ import org.apache.hadoop.hdfs.server.common.Storage.StorageDirectory;
 import org.apache.hadoop.hdfs.server.common.TextFileRegionProvider;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.ReplicaState;
 import org.apache.hadoop.hdfs.server.datanode.ProvidedReplicaBeingWritten;
+import org.apache.hadoop.hdfs.server.datanode.ProvidedReplicaInPipeline;
 import org.apache.hadoop.hdfs.server.datanode.ReplicaInPipeline;
 import org.apache.hadoop.hdfs.server.datanode.ReplicaInfo;
 import org.apache.hadoop.hdfs.server.datanode.DirectoryScanner.ReportCompiler;
@@ -379,21 +380,22 @@ public class ProvidedVolumeImpl extends FsVolumeImpl {
     // TODO do reservations matter for ProvidedVolumes
     releaseReservedSpace(bytesReserved);
 
-    if (replicaInfo.getState() == ReplicaState.RBW) {
-      ProvidedReplicaBeingWritten rbw = (ProvidedReplicaBeingWritten) replicaInfo;
+    if (replicaInfo.getState() == ReplicaState.RBW
+        || replicaInfo.getState() == ReplicaState.TEMPORARY) {
+      ProvidedReplicaInPipeline rip = (ProvidedReplicaInPipeline) replicaInfo;
       boolean success =
           getFileRegionProvider(bpid).finalize(
-              new FileRegion(rbw.getBlockId(), new Path(rbw.getBlockURI()),
-                  rbw.getOffset(), rbw.getVisibleLength(), bpid,
-                  rbw.getGenerationStamp()));
+              new FileRegion(rip.getBlockId(), new Path(rip.getBlockURI()),
+                  rip.getOffset(), rip.getVisibleLength(), bpid,
+                  rip.getGenerationStamp()));
       if (!success) {
         throw new IOException(
             "Update of FileRegionProvider failed for Provided block " + b);
       }
       return new ReplicaBuilder(ReplicaState.FINALIZED)
           .setBlockId(replicaInfo.getBlockId())
-          .setURI(rbw.getBlockURI())
-          .setOffset(rbw.getOffset())
+          .setURI(rip.getBlockURI())
+          .setOffset(rip.getOffset())
           .setLength(replicaInfo.getVisibleLength())
           .setGenerationStamp(replicaInfo.getGenerationStamp())
           .setFsVolume(this)
@@ -528,7 +530,6 @@ public class ProvidedVolumeImpl extends FsVolumeImpl {
     return new ProvidedReplicaBeingWritten(b.getBlockId(),
         newRegion.getPath().toUri(), newRegion.getOffset(), b.getNumBytes(),
         b.getGenerationStamp(), this, conf, 0L, Thread.currentThread());
-
   }
 
   @Override
@@ -539,10 +540,14 @@ public class ProvidedVolumeImpl extends FsVolumeImpl {
   }
 
   @Override
-  public ReplicaInPipeline createTemporary(ExtendedBlock b)
+  public ReplicaInPipeline createTemporary(ExtendedBlock b, BlockAlias blockAlias)
       throws IOException {
-    throw new UnsupportedOperationException(
-        "ProvidedVolume does not yet support writes");
+    FileRegion newRegion = (FileRegion) blockAlias;
+    //TODO what to reserve for this Replica?
+    return new ProvidedReplicaInPipeline(b.getBlockId(),
+        newRegion.getPath().toUri(), newRegion.getOffset(),
+        0L, b.getGenerationStamp(), this, conf, b.getLocalBlock().getNumBytes(),
+        Thread.currentThread());
   }
 
   @Override

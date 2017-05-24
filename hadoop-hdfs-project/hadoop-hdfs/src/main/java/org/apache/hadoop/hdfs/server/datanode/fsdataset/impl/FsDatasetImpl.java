@@ -1511,8 +1511,8 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
 
   @Override // FsDatasetSpi
   public ReplicaHandler createTemporary(
-      StorageType storageType, String storageId, ExtendedBlock b)
-      throws IOException {
+      StorageType storageType, String storageId, ExtendedBlock b,
+      BlockAlias blockAlias) throws IOException {
     long startTimeMs = Time.monotonicNow();
     long writerStopTimeoutMs = datanode.getDnConf().getXceiverStopTimeout();
     ReplicaInfo lastFoundReplicaInfo = null;
@@ -1529,7 +1529,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
           FsVolumeImpl v = (FsVolumeImpl) ref.getVolume();
           ReplicaInPipeline newReplicaInfo;
           try {
-            newReplicaInfo = v.createTemporary(b);
+            newReplicaInfo = v.createTemporary(b, blockAlias);
           } catch (IOException e) {
             IOUtils.cleanup(null, ref);
             throw e;

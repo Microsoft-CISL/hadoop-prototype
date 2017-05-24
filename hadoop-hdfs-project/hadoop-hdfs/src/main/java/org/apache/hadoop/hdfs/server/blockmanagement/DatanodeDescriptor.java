@@ -461,6 +461,8 @@ public class DatanodeDescriptor extends DatanodeInfo {
       totalDfsUsed += report.getDfsUsed();
       totalNonDfsUsed += report.getNonDfsUsed();
 
+      // TODO -- have to process some report for PROVIDED storage to update
+      // state of the DN storage
       if (StorageType.PROVIDED.equals(
           report.getStorage().getStorageType())) {
         continue;
@@ -746,7 +748,8 @@ public class DatanodeDescriptor extends DatanodeInfo {
         if (storage == null) {
           storage = s;
         }
-        long r = s.getRemaining();
+        long r = s.getStorageType() == StorageType.PROVIDED ? Long.MAX_VALUE
+            : s.getRemaining();
         if (r >= requiredSize) {
           remaining += r;
         }

@@ -43,12 +43,12 @@ public class DefaultProvidedVolumeDF
 
   @Override
   public long getSpaceUsed() {
-    return 0;
+    return Long.MAX_VALUE;
   }
 
   @Override
   public long getBlockPoolUsed(String bpid) {
-    return 0;
+    return Long.MAX_VALUE;
   }
 
   @Override

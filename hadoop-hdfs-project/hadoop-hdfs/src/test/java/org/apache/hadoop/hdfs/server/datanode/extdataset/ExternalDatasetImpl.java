@@ -141,7 +141,7 @@ public class ExternalDatasetImpl implements FsDatasetSpi<ExternalVolumeImpl> {
 
   @Override
   public ReplicaHandler createTemporary(StorageType t, String i,
-      ExtendedBlock b)
+      ExtendedBlock b, BlockAlias blockAlias)
       throws IOException {
     return new ReplicaHandler(new ExternalReplicaInPipeline(), null);
   }

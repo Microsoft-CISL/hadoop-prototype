@@ -204,7 +204,8 @@ public class StoragePolicySatisfyWorker {
    */
   public void processBlockMovingTasks(long trackID, String blockPoolID,
       boolean isBackup, Collection<BlockMovingInfo> blockMovingInfos) {
-    LOG.debug("Received BlockMovingTasks {}", blockMovingInfos);
+    LOG.info("Received BlockMovingTasks {}",
+        blockMovingInfos + " isBackup " + isBackup);
     if (isBackup) {
       BackupTask backupTask =
           new BackupTask(trackID, blockPoolID, blockMovingInfos);
@@ -296,6 +297,8 @@ public class StoragePolicySatisfyWorker {
       //schedule one block move at a time!!
       for (int i = 0; i < sortedMoveList.size(); i++) {
         BlockMovingInfo blkMovingInfo = sortedMoveList.get(i);
+        LOG.info("Scheduling move for block " + blkMovingInfo.getBlock()
+            + " blockAlias " + blkMovingInfo.getBlockAlias());
         for (int source = 0; source < blkMovingInfo.getSources().length; source++) {
           DatanodeInfo target = blkMovingInfo.getTargets()[source];
           BlockMovingTask blockMovingTask =

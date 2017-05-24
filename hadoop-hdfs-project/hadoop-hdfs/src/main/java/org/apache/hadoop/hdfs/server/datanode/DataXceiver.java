@@ -1234,7 +1234,8 @@ class DataXceiver extends Receiver implements Runnable {
         // notify name node
         final Replica r = blockReceiver.getReplica();
         datanode.notifyNamenodeReceivedBlock(
-            block, delHint, r.getStorageUuid(), r.isOnTransientStorage());
+            block, delHint, r.getStorageUuid(),
+            r.isOnTransientStorage() || r.isProvided());
         
         LOG.info("Moved " + block + " from " + peer.getRemoteAddressString()
             + ", delHint=" + delHint);

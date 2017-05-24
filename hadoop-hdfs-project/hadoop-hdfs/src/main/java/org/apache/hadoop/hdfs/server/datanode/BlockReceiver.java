@@ -209,7 +209,7 @@ class BlockReceiver implements Closeable {
       //
       if (isDatanode) { //replication or move
         replicaHandler =
-            datanode.data.createTemporary(storageType, storageId, block);
+            datanode.data.createTemporary(storageType, storageId, block, blockAlias);
       } else {
         switch (stage) {
         case PIPELINE_SETUP_CREATE:
@@ -239,7 +239,7 @@ class BlockReceiver implements Closeable {
         case TRANSFER_FINALIZED:
           // this is a transfer destination
           replicaHandler =
-              datanode.data.createTemporary(storageType, storageId, block);
+              datanode.data.createTemporary(storageType, storageId, block, blockAlias);
           break;
         default: throw new IOException("Unsupported stage " + stage + 
               " while receiving block " + block + " from " + inAddr);

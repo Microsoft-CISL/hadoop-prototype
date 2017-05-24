@@ -29,6 +29,7 @@ import java.nio.channels.ReadableByteChannel;
 import java.util.Random;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FileUtil;
@@ -36,6 +37,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.DFSTestUtil;
+import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.apache.hadoop.hdfs.HdfsConfiguration;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.hdfs.server.blockmanagement.BlockFormatProvider;
@@ -327,30 +329,33 @@ public class TestNameNodeProvidedImplementation {
 
       if (rs.isFile()) {
         assertEquals(rs.getLen(), hs.getLen());
-        try (ReadableByteChannel i = Channels.newChannel(
-              new FileInputStream(new File(rs.getPath().toUri())))) {
-          try (ReadableByteChannel j = Channels.newChannel(
-                fs.open(hs.getPath()))) {
-            ByteBuffer ib = ByteBuffer.allocate(4096);
-            ByteBuffer jb = ByteBuffer.allocate(4096);
-            while (true) {
-              int il = i.read(ib);
-              int jl = j.read(jb);
-              if (il < 0 || jl < 0) {
-                assertEquals(il, jl);
-                break;
-              }
-              ib.flip();
-              jb.flip();
-              int cmp = Math.min(ib.remaining(), jb.remaining());
-              for (int k = 0; k < cmp; ++k) {
-                assertEquals(ib.get(), jb.get());
-              }
-              ib.compact();
-              jb.compact();
-            }
+        verifyFileContent(fs.open(hs.getPath()),
+            new FileInputStream(new File(rs.getPath().toUri())));
+      }
+    }
+  }
 
+  private void verifyFileContent(FSDataInputStream fsStream,
+      FileInputStream localStream) throws IOException {
+    try (ReadableByteChannel i = Channels.newChannel(localStream)) {
+      try (ReadableByteChannel j = Channels.newChannel(fsStream)) {
+        ByteBuffer ib = ByteBuffer.allocate(4096);
+        ByteBuffer jb = ByteBuffer.allocate(4096);
+        while (true) {
+          int il = i.read(ib);
+          int jl = j.read(jb);
+          if (il < 0 || jl < 0) {
+            assertEquals(il, jl);
+            break;
           }
+          ib.flip();
+          jb.flip();
+          int cmp = Math.min(ib.remaining(), jb.remaining());
+          for (int k = 0; k < cmp; ++k) {
+            assertEquals(ib.get(), jb.get());
+          }
+          ib.compact();
+          jb.compact();
         }
       }
     }
@@ -412,24 +417,49 @@ public class TestNameNodeProvidedImplementation {
 
   @Test
   public void testBackupToProvided() throws Exception {
-    startCluster(NNDIRPATH, 2, null,
-        new StorageType[][] { { StorageType.DISK }, { StorageType.PROVIDED } },
-        true);
+    createImage(new FSTreeWalk(NAMEPATH, conf), NNDIRPATH,
+            FixedBlockResolver.class);
+    startCluster(NNDIRPATH, 3, null,
+        new StorageType[][] {
+            { StorageType.DISK },
+            { StorageType.DISK },
+            { StorageType.PROVIDED }},
+        false);
 
-    String file = "/scheduleBlockMoves";
-    createFile(new Path("/scheduleBlockMoves"), (short) 1, 1024 * 1024,
-        1024 * 1024);
+    FileSystem fs = cluster.getFileSystem();
+    String dirName = "/0/dirToBackup/";
+    fs.mkdirs(new Path(dirName));
+    String baseFilePath = dirName + "scheduleBlockMoves";
 
+    int numBackupFiles = 3;
+    //create 3 files!
+    for (int i = 0; i < numBackupFiles; i++) {
+      String filePath = baseFilePath + i + ".dat";
+      createFile(new Path(filePath), (short) 2, 1024 * 1024 * 3, 1024 * 1024);
+    }
+
+    //set all files to provided
     final StoragePolicyAdmin admin = new StoragePolicyAdmin(conf);
-    DFSTestUtil.toolRun(admin, "-getStoragePolicy -path " + file, 0,
-        "The storage policy of " + file + " is unspecified");
-    DFSTestUtil.waitExpectedStorageType(file, StorageType.DISK, 1, 30000,
-        cluster.getFileSystem());
-    DFSTestUtil.toolRun(admin,
-        "-setStoragePolicy -path " + file
-            + " -policy PROVIDED -scheduleBlockMoves",
-        0, "Set storage policy PROVIDED on " + file);
-    DFSTestUtil.waitExpectedStorageType(file, StorageType.PROVIDED, 1, 30000,
-        cluster.getFileSystem());
+    for (int i = 0; i < numBackupFiles; i++) {
+      String filePath = baseFilePath + i + ".dat";
+      DFSTestUtil.toolRun(admin, "-getStoragePolicy -path " + filePath, 0,
+              "The storage policy of " + filePath + " is unspecified");
+      ((DistributedFileSystem) fs)
+              .setStoragePolicy(new Path(filePath), "PROVIDED", true);
+    }
+    //wait for storage policy to reflect!
+    for (int i = 0; i < numBackupFiles; i++) {
+      String filePath = baseFilePath + i + ".dat";
+      DFSTestUtil.waitExpectedStorageType(filePath, StorageType.PROVIDED, 1,
+          100000, cluster.getFileSystem());
+    }
+
+    //verify the files are backed up
+    for (int i = 0; i < numBackupFiles; i++) {
+      String filePath = baseFilePath + i + ".dat";
+      verifyFileContent(fs.open(new Path(filePath)),
+          new FileInputStream(
+              new File(new Path(NAMEPATH, filePath.substring(1)).toUri())));
+    }
   }
 }

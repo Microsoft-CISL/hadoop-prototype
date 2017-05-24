@@ -468,7 +468,8 @@ public class StoragePolicySatisfier implements Runnable {
     //this is a backup!
     boolean isBackup = blockCollection.getStoragePolicyID() == blockManager
         .getStoragePolicy("PROVIDED").getId();
-    
+    LOG.info("assigning blockCollection movement to datanode " + coordinatorNode
+        + " isBackup is " + isBackup);
     Long blockCollectionID = blockCollection.getId();
     // 'BlockCollectionId' is used as the tracking ID. All the blocks under this
     // blockCollectionID will be added to this datanode.
@@ -739,7 +740,7 @@ public class StoragePolicySatisfier implements Runnable {
         StorageType t = storageReport.getStorage().getStorageType();
         if (expected.contains(t)) {
           final long maxRemaining = getMaxRemaining(dn.getStorageReports(), t);
-          if (maxRemaining > 0L) {
+          if (maxRemaining > 0L || t == StorageType.PROVIDED) {
             targetMap.add(t, dn);
           }
         }

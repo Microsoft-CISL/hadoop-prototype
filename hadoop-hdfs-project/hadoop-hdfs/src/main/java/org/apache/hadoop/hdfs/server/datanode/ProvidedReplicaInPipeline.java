@@ -243,16 +243,26 @@ public class ProvidedReplicaInPipeline extends ProvidedReplica
     OutputStream blockOut = null;
     OutputStream crcOut = null;
     try {
-      FileSystem remoteFS = FileSystem.newInstance(getBlockURI(), conf);
+      URI blockURI = getBlockURI();
+      FileSystem remoteFS = FileSystem.newInstance(blockURI, conf);
       //TODO fileOffset is not required if we use append here!
       //TODO have to do an append here!!
-      Path existingPath = new Path(getBlockURI());
+      Path existingPath = new Path(blockURI);
       if (remoteFS.exists(existingPath)) {
         blockOut = new ProvidedOutputStream(existingPath);
       } else {
-        blockOut = remoteFS.create(new Path(getBlockURI()));
+        //if the parent does not exist
+        if (!remoteFS.exists(existingPath.getParent())) {
+          boolean createDirs = remoteFS.mkdirs(existingPath.getParent());
+          if (!createDirs) {
+            throw new IOException(
+                "Unable to create directories for the remote path "
+                    + existingPath);
+          }
+        }
+        blockOut = remoteFS.create(new Path(blockURI));
       }
-      crcOut = remoteFS.create(new Path(getBlockURI().getPath() + ".meta." + getBlockId()));
+      crcOut = remoteFS.create(new Path(blockURI.getPath() + ".meta." + getBlockId()));
       if (!isCreate) {
         // TODO For append or recovery of block
       }

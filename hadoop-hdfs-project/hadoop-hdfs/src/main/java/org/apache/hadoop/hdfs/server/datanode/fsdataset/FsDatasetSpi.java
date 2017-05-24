@@ -320,7 +320,7 @@ public interface FsDatasetSpi<V extends FsVolumeSpi> extends FSDatasetMBean {
    * @throws IOException if an error occurs
    */
   ReplicaHandler createTemporary(StorageType storageType, String storageId,
-      ExtendedBlock b) throws IOException;
+      ExtendedBlock b, BlockAlias blockAlias) throws IOException;
 
   /**
    * Creates a RBW replica and returns the meta info of the replica

@@ -1038,12 +1038,12 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
   public synchronized ReplicaHandler createRbw(StorageType storageType,
       String storageId, ExtendedBlock b, boolean allowLazyPersist,
       BlockAlias blockAlias) throws IOException {
-    return createTemporary(storageType, storageId, b);
+    return createTemporary(storageType, storageId, b, null);
   }
 
   @Override // FsDatasetSpi
   public synchronized ReplicaHandler createTemporary(StorageType storageType,
-      String storageId, ExtendedBlock b) throws IOException {
+      String storageId, ExtendedBlock b, BlockAlias blockAlias) throws IOException {
     if (isValidBlock(b)) {
       throw new ReplicaAlreadyExistsException(
           "Block " + b + " is valid, and cannot be written to.");
