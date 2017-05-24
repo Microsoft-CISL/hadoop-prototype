@@ -187,7 +187,7 @@ public class StoragePolicyAdmin extends Configured implements Tool {
 
     @Override
     public String getShortUsage() {
-      return "[" + getName() + " -path <path> -policy <policy>]\n";
+      return "[" + getName() + " -path <path> -policy <policy> [-scheduleBlockMoves]]\n";
     }
 
     @Override
@@ -196,6 +196,8 @@ public class StoragePolicyAdmin extends Configured implements Tool {
       listing.addRow("<path>", "The path of the file/directory to set storage" +
           " policy");
       listing.addRow("<policy>", "The name of the block storage policy");
+      listing.addRow("-scheduleBlockMoves",
+          "Schedule blocks to move based on specified policy");
       return getShortUsage() + "\n" +
           "Set the storage policy to a file/directory.\n\n" +
           listing.toString();
@@ -211,6 +213,8 @@ public class StoragePolicyAdmin extends Configured implements Tool {
       }
 
       final String policyName = StringUtils.popOptionWithArgument("-policy",
+          args);
+      final boolean scheduleBlockMoves = StringUtils.popOption("-scheduleBlockMoves",
           args);
       if (policyName == null) {
         System.err.println("Please specify the policy name.\nUsage: " +

@@ -583,18 +583,33 @@ public class DistributedFileSystem extends FileSystem {
   @Override
   public void setStoragePolicy(final Path src, final String policyName)
       throws IOException {
+    setStoragePolicy(src, policyName, false);
+  }
+
+  /**
+   * Set the source path to the specified storage policy.
+   *
+   * @param src
+   *          The source path referring to either a directory or a file.
+   * @param policyName
+   *          The name of the storage policy.
+   * @param scheduleBlockMoves
+   *          schedule blocks to move based on specified policy.
+   */
+  public void setStoragePolicy(final Path src, final String policyName,
+      boolean scheduleBlockMoves) throws IOException {
     statistics.incrementWriteOps(1);
     storageStatistics.incrementOpCounter(OpType.SET_STORAGE_POLICY);
     Path absF = fixRelativePart(src);
     new FileSystemLinkResolver<Void>() {
       @Override
       public Void doCall(final Path p) throws IOException {
-        dfs.setStoragePolicy(getPathName(p), policyName);
+        dfs.setStoragePolicy(getPathName(p), policyName, scheduleBlockMoves);
         return null;
       }
+
       @Override
-      public Void next(final FileSystem fs, final Path p)
-          throws IOException {
+      public Void next(final FileSystem fs, final Path p) throws IOException {
         fs.setStoragePolicy(p, policyName);
         return null;
       }

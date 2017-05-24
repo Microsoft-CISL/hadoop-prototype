@@ -590,7 +590,7 @@ public class TestMover {
       String barDir = "/bar";
       client.mkdirs(barDir, new FsPermission((short) 777), true);
       client.setStoragePolicy(barDir,
-          HdfsConstants.HOT_STORAGE_POLICY_NAME);
+          HdfsConstants.HOT_STORAGE_POLICY_NAME, false);
       // set an EC policy on "/bar" directory
       client.setErasureCodingPolicy(barDir,
           StripedFileTestUtil.getDefaultECPolicy().getName());
@@ -631,7 +631,7 @@ public class TestMover {
       cluster.triggerHeartbeats();
 
       // move file to ARCHIVE
-      client.setStoragePolicy(barDir, "COLD");
+      client.setStoragePolicy(barDir, "COLD", false);
       // run Mover
       int rc = ToolRunner.run(conf, new Mover.Cli(),
           new String[] { "-p", barDir });
@@ -665,7 +665,7 @@ public class TestMover {
       cluster.triggerHeartbeats();
 
       // move file blocks to ONE_SSD policy
-      client.setStoragePolicy(barDir, "ONE_SSD");
+      client.setStoragePolicy(barDir, "ONE_SSD", false);
 
       // run Mover
       rc = ToolRunner.run(conf, new Mover.Cli(), new String[] { "-p", barDir });

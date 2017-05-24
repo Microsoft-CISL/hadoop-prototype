@@ -1569,10 +1569,12 @@ public class ClientNamenodeProtocolTranslatorPB implements
   }
 
   @Override
-  public void setStoragePolicy(String src, String policyName)
+	public void setStoragePolicy(String src, String policyName,
+			boolean scheduleBlockMoves)
       throws IOException {
     SetStoragePolicyRequestProto req = SetStoragePolicyRequestProto
-        .newBuilder().setSrc(src).setPolicyName(policyName).build();
+        .newBuilder().setSrc(src).setPolicyName(policyName)
+        .setScheduleBlockMoves(scheduleBlockMoves).build();
     try {
       rpcProxy.setStoragePolicy(null, req);
     } catch (ServiceException e) {

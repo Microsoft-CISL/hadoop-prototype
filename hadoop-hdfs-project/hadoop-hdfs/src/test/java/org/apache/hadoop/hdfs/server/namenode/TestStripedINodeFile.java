@@ -425,7 +425,7 @@ public class TestStripedINodeFile {
           cluster.getFileSystem(0).getUri(), ClientProtocol.class).getProxy();
       String fooDir = "/foo";
       client.mkdirs(fooDir, new FsPermission((short) 777), true);
-      client.setStoragePolicy(fooDir, HdfsConstants.ONESSD_STORAGE_POLICY_NAME);
+      client.setStoragePolicy(fooDir, HdfsConstants.ONESSD_STORAGE_POLICY_NAME, false);
       // set an EC policy on "/foo" directory
       client.setErasureCodingPolicy(fooDir,
           StripedFileTestUtil.getDefaultECPolicy().getName());

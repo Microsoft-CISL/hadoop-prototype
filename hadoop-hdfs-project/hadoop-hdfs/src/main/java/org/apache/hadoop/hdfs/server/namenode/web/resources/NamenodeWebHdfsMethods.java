@@ -717,7 +717,7 @@ public class NamenodeWebHdfsMethods {
       if (policyName.getValue() == null) {
         throw new IllegalArgumentException("Storage policy name is empty.");
       }
-      np.setStoragePolicy(fullpath, policyName.getValue());
+      np.setStoragePolicy(fullpath, policyName.getValue(), false);
       return Response.ok().type(MediaType.APPLICATION_OCTET_STREAM).build();
     }
     default:

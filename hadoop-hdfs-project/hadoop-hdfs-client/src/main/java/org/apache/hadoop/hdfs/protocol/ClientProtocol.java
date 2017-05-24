@@ -278,7 +278,9 @@ public interface ClientProtocol {
   /**
    * Set the storage policy for a file/directory.
    * @param src Path of an existing file/directory.
-   * @param policyName The name of the storage policy
+   * @param policyName The name of the storage policy.
+   * @param scheduleBlockMoves
+   *          schedule blocks to move based in specified policy.
    * @throws SnapshotAccessControlException If access is denied
    * @throws org.apache.hadoop.fs.UnresolvedLinkException if <code>src</code>
    *           contains a symlink
@@ -286,9 +288,9 @@ public interface ClientProtocol {
    *           found
    * @throws QuotaExceededException If changes violate the quota restriction
    */
-  @Idempotent
-  void setStoragePolicy(String src, String policyName)
-      throws IOException;
+	@Idempotent
+	void setStoragePolicy(String src, String policyName,
+			boolean scheduleBlockMoves) throws IOException;
 
   /**
    * Unset the storage policy set for a given file or directory.

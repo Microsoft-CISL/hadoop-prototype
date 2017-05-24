@@ -111,6 +111,7 @@ message SetReplicationResponseProto {
 message SetStoragePolicyRequestProto {
   required string src = 1;
   required string policyName = 2;
+  optional bool scheduleBlockMoves = 3 [default = false];
 }
 
 message SetStoragePolicyResponseProto { // void response

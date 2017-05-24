@@ -1424,7 +1424,7 @@ public class SimulatedFSDataset implements FsDatasetSpi<FsVolumeSpi> {
 
   @Override
   public ReplicaInfo moveBlockAcrossStorage(ExtendedBlock block,
-      StorageType targetStorageType, String storageId, BlockAlias blockAlias)
+      StorageType targetStorageType, String storageId)
       throws IOException {
     // TODO Auto-generated method stub
     return null;

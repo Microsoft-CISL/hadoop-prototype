@@ -810,10 +810,12 @@ public class NameNodeRpcServer implements NamenodeProtocols {
   }
 
   @Override
-  public void setStoragePolicy(String src, String policyName)
+	public void setStoragePolicy(String src, String policyName,
+			boolean scheduleBlockMoves)
       throws IOException {
     checkNNStartup();
-    namesystem.setStoragePolicy(src, policyName);
+    
+    namesystem.setStoragePolicy(src, policyName, scheduleBlockMoves);
   }
 
   @Override

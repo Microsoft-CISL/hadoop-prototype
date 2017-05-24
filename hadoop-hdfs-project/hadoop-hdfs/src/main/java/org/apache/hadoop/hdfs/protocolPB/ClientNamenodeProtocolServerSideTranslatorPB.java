@@ -1536,7 +1536,8 @@ public class ClientNamenodeProtocolServerSideTranslatorPB implements
       RpcController controller, SetStoragePolicyRequestProto request)
       throws ServiceException {
     try {
-      server.setStoragePolicy(request.getSrc(), request.getPolicyName());
+      server.setStoragePolicy(request.getSrc(), request.getPolicyName(),
+          request.getScheduleBlockMoves());
     } catch (IOException e) {
       throw new ServiceException(e);
     }

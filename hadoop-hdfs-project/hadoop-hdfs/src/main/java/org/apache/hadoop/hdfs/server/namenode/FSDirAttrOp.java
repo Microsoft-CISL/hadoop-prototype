@@ -160,24 +160,26 @@ public class FSDirAttrOp {
   static HdfsFileStatus unsetStoragePolicy(FSDirectory fsd, BlockManager bm,
       String src) throws IOException {
     return setStoragePolicy(fsd, bm, src,
-        HdfsConstants.BLOCK_STORAGE_POLICY_ID_UNSPECIFIED, "unset");
+        HdfsConstants.BLOCK_STORAGE_POLICY_ID_UNSPECIFIED, "unset", false);
   }
 
   static HdfsFileStatus setStoragePolicy(FSDirectory fsd, BlockManager bm,
-      String src, final String policyName) throws IOException {
-    // get the corresponding policy and make sure the policy name is valid
+      String src, final String policyName, boolean scheduleBlockMoves)
+      throws IOException {
+  // get the corresponding policy and make sure the policy name is valid
     BlockStoragePolicy policy = bm.getStoragePolicy(policyName);
     if (policy == null) {
       throw new HadoopIllegalArgumentException(
           "Cannot find a block policy with the name " + policyName);
     }
 
-    return setStoragePolicy(fsd, bm, src, policy.getId(), "set");
+    return setStoragePolicy(fsd, bm, src, policy.getId(), "set",
+        scheduleBlockMoves);
   }
 
   static HdfsFileStatus setStoragePolicy(FSDirectory fsd, BlockManager bm,
-      String src, final byte policyId, final String operation)
-      throws IOException {
+      String src, final byte policyId, final String operation,
+      boolean scheduleBlockMoves) throws IOException {
     if (!fsd.isStoragePolicyEnabled()) {
       throw new IOException(String.format(
           "Failed to %s storage policy since %s is set to false.", operation,
@@ -192,8 +194,8 @@ public class FSDirAttrOp {
       if (fsd.isPermissionEnabled()) {
         fsd.checkPathAccess(pc, iip, FsAction.WRITE);
       }
-
-      unprotectedSetStoragePolicy(fsd, bm, iip, policyId);
+      
+      unprotectedSetStoragePolicy(fsd, bm, iip, policyId, scheduleBlockMoves);
       fsd.getEditLog().logSetStoragePolicy(iip.getPath(), policyId);
     } finally {
       fsd.writeUnlock();
@@ -201,26 +203,30 @@ public class FSDirAttrOp {
     return fsd.getAuditFileInfo(iip);
   }
 
+  static void satisfyStoragePolicy(FSDirectory fsd, BlockManager bm,
+      INodesInPath iip, boolean logRetryCache) throws IOException {
+    List<XAttr> xAttrs = Lists.newArrayListWithCapacity(1);
+    XAttr satisfyXAttr = unprotectedSatisfyStoragePolicy(iip, bm, fsd);
+    xAttrs.add(satisfyXAttr);
+    fsd.getEditLog().logSetXAttrs(iip.getPath(), xAttrs, logRetryCache);
+  }
+
   static HdfsFileStatus satisfyStoragePolicy(FSDirectory fsd, BlockManager bm,
-                                             String src, boolean logRetryCache) throws IOException {
+      String src, boolean logRetryCache) throws IOException {
 
     FSPermissionChecker pc = fsd.getPermissionChecker();
-    List<XAttr> xAttrs = Lists.newArrayListWithCapacity(1);
     INodesInPath iip;
     fsd.writeLock();
     try {
-
       // check operation permission.
       iip = fsd.resolvePath(pc, src, DirOp.WRITE);
       if (fsd.isPermissionEnabled()) {
         fsd.checkPathAccess(pc, iip, FsAction.WRITE);
       }
-      XAttr satisfyXAttr = unprotectedSatisfyStoragePolicy(iip, bm, fsd);
-      xAttrs.add(satisfyXAttr);
+      satisfyStoragePolicy(fsd, bm, iip, logRetryCache);
     } finally {
       fsd.writeUnlock();
     }
-    fsd.getEditLog().logSetXAttrs(src, xAttrs, logRetryCache);
     return fsd.getAuditFileInfo(iip);
   }
 
@@ -450,7 +456,7 @@ public class FSDirAttrOp {
   }
 
   static void unprotectedSetStoragePolicy(FSDirectory fsd, BlockManager bm,
-      INodesInPath iip, final byte policyId)
+      INodesInPath iip, final byte policyId, boolean scheduleBlockMoves)
       throws IOException {
     assert fsd.hasWriteLock();
     final INode inode = iip.getLastINode();
@@ -476,8 +482,14 @@ public class FSDirAttrOp {
             "Existing policy " + currentPolicy.getName() +
                 " cannot be changed after file creation.");
       }
+      if (scheduleBlockMoves) {
+        satisfyStoragePolicy(fsd, bm, iip, false);
+      }
       inode.asFile().setStoragePolicyID(policyId, snapshotId);
     } else if (inode.isDirectory()) {
+      if (scheduleBlockMoves) {
+        satisfyStoragePolicy(fsd, bm, iip, false);
+      }
       setDirStoragePolicy(fsd, iip, policyId);
     } else {
       throw new FileNotFoundException(iip.getPath()

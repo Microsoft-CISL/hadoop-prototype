@@ -998,7 +998,7 @@ public class TestBlockStoragePolicy {
       DFSClient client = new DFSClient(cluster.getNameNode(0)
           .getNameNodeAddress(), conf);
       client.setStoragePolicy("/testGetStoragePolicy/foo",
-          HdfsConstants.COLD_STORAGE_POLICY_NAME);
+          HdfsConstants.COLD_STORAGE_POLICY_NAME, false);
       String policyName = client.getStoragePolicy("/testGetStoragePolicy/foo")
           .getName();
       Assert.assertEquals("File storage policy should be COLD",

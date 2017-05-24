@@ -884,7 +884,8 @@ public class TestStoragePolicySatisfier {
       DFSTestUtil.createFile(dfs, new Path(testFile), fileLen, (short) 3, 0);
 
       // ONESSD is unsuitable storage policy on EC files
-      client.setStoragePolicy(fooDir, HdfsConstants.ONESSD_STORAGE_POLICY_NAME);
+      client.setStoragePolicy(fooDir, HdfsConstants.ONESSD_STORAGE_POLICY_NAME,
+          false);
       dfs.satisfyStoragePolicy(new Path(testFile));
 
       // Thread.sleep(9000); // To make sure SPS triggered

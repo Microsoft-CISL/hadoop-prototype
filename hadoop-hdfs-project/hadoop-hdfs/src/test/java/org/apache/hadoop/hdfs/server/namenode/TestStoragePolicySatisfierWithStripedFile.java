@@ -127,7 +127,7 @@ public class TestStoragePolicySatisfierWithStripedFile {
           cluster.getFileSystem(0).getUri(), ClientProtocol.class).getProxy();
       String barDir = "/bar";
       client.mkdirs(barDir, new FsPermission((short) 777), true);
-      client.setStoragePolicy(barDir, HdfsConstants.HOT_STORAGE_POLICY_NAME);
+      client.setStoragePolicy(barDir, HdfsConstants.HOT_STORAGE_POLICY_NAME, false);
       // set an EC policy on "/bar" directory
       client.setErasureCodingPolicy(barDir, null);
 
@@ -167,7 +167,7 @@ public class TestStoragePolicySatisfierWithStripedFile {
       cluster.triggerHeartbeats();
 
       // move file to ARCHIVE
-      client.setStoragePolicy(barDir, "COLD");
+      client.setStoragePolicy(barDir, "COLD", false);
       hdfsAdmin.satisfyStoragePolicy(new Path(fooFile));
       LOG.info("Sets storage policy to COLD and invoked satisfyStoragePolicy");
       cluster.triggerHeartbeats();
@@ -234,7 +234,7 @@ public class TestStoragePolicySatisfierWithStripedFile {
           cluster.getFileSystem(0).getUri(), ClientProtocol.class).getProxy();
       String barDir = "/bar";
       client.mkdirs(barDir, new FsPermission((short) 777), true);
-      client.setStoragePolicy(barDir, HdfsConstants.HOT_STORAGE_POLICY_NAME);
+      client.setStoragePolicy(barDir, HdfsConstants.HOT_STORAGE_POLICY_NAME, false);
       // set an EC policy on "/bar" directory
       client.setErasureCodingPolicy(barDir, null);
 
@@ -272,7 +272,7 @@ public class TestStoragePolicySatisfierWithStripedFile {
 
       // Move file to ARCHIVE. Only 5 datanodes are available with ARCHIVE
       // storage type.
-      client.setStoragePolicy(barDir, "COLD");
+      client.setStoragePolicy(barDir, "COLD", false);
       hdfsAdmin.satisfyStoragePolicy(new Path(fooFile));
       LOG.info("Sets storage policy to COLD and invoked satisfyStoragePolicy");
       cluster.triggerHeartbeats();
@@ -342,7 +342,8 @@ public class TestStoragePolicySatisfierWithStripedFile {
           cluster.getFileSystem(0).getUri(), ClientProtocol.class).getProxy();
       String barDir = "/bar";
       client.mkdirs(barDir, new FsPermission((short) 777), true);
-      client.setStoragePolicy(barDir, HdfsConstants.HOT_STORAGE_POLICY_NAME);
+      client.setStoragePolicy(barDir, HdfsConstants.HOT_STORAGE_POLICY_NAME,
+          false);
       // set an EC policy on "/bar" directory
       client.setErasureCodingPolicy(barDir, null);
 
@@ -365,7 +366,7 @@ public class TestStoragePolicySatisfierWithStripedFile {
 
       // Move file to ARCHIVE. Only 5 datanodes are available with ARCHIVE
       // storage type.
-      client.setStoragePolicy(barDir, "COLD");
+      client.setStoragePolicy(barDir, "COLD", false);
       hdfsAdmin.satisfyStoragePolicy(new Path(fooFile));
       LOG.info("Sets storage policy to COLD and invoked satisfyStoragePolicy");
       cluster.triggerHeartbeats();

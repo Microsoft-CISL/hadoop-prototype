@@ -2055,8 +2055,10 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
    *
    * @param src file/directory path
    * @param policyName storage policy name
+   * @param scheduleBlockMoves 
    */
-  void setStoragePolicy(String src, String policyName) throws IOException {
+  void setStoragePolicy(String src, String policyName,
+      boolean scheduleBlockMoves) throws IOException {
     final String operationName = "setStoragePolicy";
     HdfsFileStatus auditStat;
     checkOperation(OperationCategory.WRITE);
@@ -2064,8 +2066,11 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     try {
       checkOperation(OperationCategory.WRITE);
       checkNameNodeSafeMode("Cannot set storage policy for " + src);
+      if(scheduleBlockMoves){
+        checkStoragePolicySpecifierStatus();
+      }
       auditStat = FSDirAttrOp.setStoragePolicy(dir, blockManager, src,
-                                               policyName);
+          policyName, scheduleBlockMoves);
     } catch (AccessControlException e) {
       logAuditEvent(false, operationName, src);
       throw e;
@@ -2088,25 +2093,29 @@ public class FSNamesystem implements Namesystem, FSNamesystemMBean,
     try {
       checkOperation(OperationCategory.WRITE);
       checkNameNodeSafeMode("Cannot satisfy storage policy for " + src);
-      // make sure storage policy is enabled, otherwise
-      // there is no need to satisfy storage policy.
-      if (!dir.isStoragePolicyEnabled()) {
-        throw new IOException(String.format(
-            "Failed to satisfy storage policy since %s is set to false.",
-            DFS_STORAGE_POLICY_ENABLED_KEY));
-      }
-
-      if (blockManager.getStoragePolicySatisfier() == null
-          || !blockManager.getStoragePolicySatisfier().isRunning()) {
-        throw new UnsupportedActionException(
-            "Cannot request to satisfy storage policy "
-                + "when storage policy satisfier feature has been deactivated"
-                + " by admin. Seek for an admin help to activate it "
-                + "or use Mover tool.");
-      }
+      checkStoragePolicySpecifierStatus();
       FSDirAttrOp.satisfyStoragePolicy(dir, blockManager, src, logRetryCache);
     } finally {
       writeUnlock();
+    }
+  }
+  
+  private void checkStoragePolicySpecifierStatus() throws IOException {
+    // make sure storage policy is enabled, otherwise
+    // there is no need to satisfy storage policy.
+    if (!dir.isStoragePolicyEnabled()) {
+      throw new IOException(String.format(
+          "Failed to satisfy storage policy since %s is set to false.",
+          DFS_STORAGE_POLICY_ENABLED_KEY));
+    }
+
+    if (blockManager.getStoragePolicySatisfier() == null
+        || !blockManager.getStoragePolicySatisfier().isRunning()) {
+      throw new UnsupportedActionException(
+          "Cannot request to satisfy storage policy "
+              + "when storage policy satisfier feature has been deactivated"
+              + " by admin. Seek for an admin help to activate it "
+              + "or use Mover tool.");
     }
   }
 

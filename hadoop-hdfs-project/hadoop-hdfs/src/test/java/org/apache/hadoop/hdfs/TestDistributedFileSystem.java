@@ -253,7 +253,7 @@ public class TestDistributedFileSystem {
     }
     try {
       dfsClient.setStoragePolicy(p.getName(),
-          HdfsConstants.ONESSD_STORAGE_POLICY_NAME);
+          HdfsConstants.ONESSD_STORAGE_POLICY_NAME, false);
       fail("setStoragePolicy using a closed filesystem!");
     } catch (IOException ioe) {
       GenericTestUtils.assertExceptionContains("Filesystem closed", ioe);

@@ -20,7 +20,9 @@ package org.apache.hadoop.hdfs.tools;
 import java.io.IOException;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.StorageType;
 import org.apache.hadoop.hdfs.DFSTestUtil;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.apache.hadoop.hdfs.HdfsConfiguration;
@@ -45,12 +47,15 @@ public class TestStoragePolicyCommands {
   @Before
   public void clusterSetUp() throws IOException {
     conf = new HdfsConfiguration();
-    cluster = new MiniDFSCluster.Builder(conf).numDataNodes(REPL).build();
+    cluster = new MiniDFSCluster.Builder(conf)
+        .numDataNodes(1)
+        .storageTypes(
+            new StorageType[][] {{StorageType.DISK, StorageType.ARCHIVE}})
+        .build();
     cluster.waitActive();
     fs = cluster.getFileSystem();
   }
 
-  @After
   public void clusterShutdown() throws IOException{
     if(fs != null) {
       fs.close();
@@ -156,5 +161,23 @@ public class TestStoragePolicyCommands {
         "The storage policy of " + bar.toString() + ":\n" + cold);
     DFSTestUtil.toolRun(admin, "-getStoragePolicy -path /fooz", 2,
         "File/Directory does not exist: /fooz");
+  }
+
+  @Test
+  public void testSetStoragePolicyWithScheduleBlockMovesOption()
+      throws Exception {
+    String file = "/scheduleBlockMoves";
+    DFSTestUtil.createFile(fs, new Path("/scheduleBlockMoves"), SIZE, REPL, 0);
+
+    final StoragePolicyAdmin admin = new StoragePolicyAdmin(conf);
+    DFSTestUtil.toolRun(admin, "-getStoragePolicy -path " + file, 0,
+        "The storage policy of " + file + " is unspecified");
+    DFSTestUtil.waitExpectedStorageType(file, StorageType.DISK, 1, 30000,
+        cluster.getFileSystem());
+    DFSTestUtil.toolRun(admin, "-setStoragePolicy -path " + file
+        + " -policy COLD -scheduleBlockMoves", 0, "Set storage policy COLD on "
+        + file);
+    DFSTestUtil.waitExpectedStorageType(file, StorageType.ARCHIVE, 1, 30000,
+        cluster.getFileSystem());
   }
 }

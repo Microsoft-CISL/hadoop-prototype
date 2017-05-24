@@ -1446,12 +1446,14 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
    * Set storage policy for an existing file/directory
    * @param src file/directory name
    * @param policyName name of the storage policy
+   * @param scheduleBlockMoves
+   *          schedule blocks to move based on specified policy.
    */
-  public void setStoragePolicy(String src, String policyName)
-      throws IOException {
+  public void setStoragePolicy(String src, String policyName,
+      boolean scheduleBlockMoves) throws IOException {
     checkOpen();
     try (TraceScope ignored = newPathTraceScope("setStoragePolicy", src)) {
-      namenode.setStoragePolicy(src, policyName);
+      namenode.setStoragePolicy(src, policyName, scheduleBlockMoves);
     } catch (RemoteException e) {
       throw e.unwrapRemoteException(AccessControlException.class,
           FileNotFoundException.class,
