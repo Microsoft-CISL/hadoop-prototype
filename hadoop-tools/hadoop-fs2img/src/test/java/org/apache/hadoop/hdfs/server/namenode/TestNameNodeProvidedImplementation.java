@@ -46,6 +46,7 @@ import org.apache.hadoop.hdfs.server.common.TextFileRegionFormat;
 import org.apache.hadoop.hdfs.server.common.TextFileRegionProvider;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_NAMENODE_NAME_DIR_KEY;
 
+import org.apache.hadoop.hdfs.tools.StoragePolicyAdmin;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -407,5 +408,28 @@ public class TestNameNodeProvidedImplementation {
     File file =
         new File(new Path(NAMEPATH, filePrefix + fileId + fileSuffix).toUri());
     assertEquals(bytesToAdd + baseFileLen * fileId, file.length());
+  }
+
+  @Test
+  public void testBackupToProvided() throws Exception {
+    startCluster(NNDIRPATH, 2, null,
+        new StorageType[][] { { StorageType.DISK }, { StorageType.PROVIDED } },
+        true);
+
+    String file = "/scheduleBlockMoves";
+    createFile(new Path("/scheduleBlockMoves"), (short) 1, 1024 * 1024,
+        1024 * 1024);
+
+    final StoragePolicyAdmin admin = new StoragePolicyAdmin(conf);
+    DFSTestUtil.toolRun(admin, "-getStoragePolicy -path " + file, 0,
+        "The storage policy of " + file + " is unspecified");
+    DFSTestUtil.waitExpectedStorageType(file, StorageType.DISK, 1, 30000,
+        cluster.getFileSystem());
+    DFSTestUtil.toolRun(admin,
+        "-setStoragePolicy -path " + file
+            + " -policy PROVIDED -scheduleBlockMoves",
+        0, "Set storage policy PROVIDED on " + file);
+    DFSTestUtil.waitExpectedStorageType(file, StorageType.PROVIDED, 1, 30000,
+        cluster.getFileSystem());
   }
 }
