@@ -1164,8 +1164,7 @@ class DataXceiver extends Receiver implements Runnable {
     try {
       // Move the block to different storage in the same datanode
       // unless the destination storage type is PROVIDED
-      if (proxySource.equals(datanode.getDatanodeId())
-          && storageType != StorageType.PROVIDED) {
+      if (proxySource.equals(datanode.getDatanodeId())) {
         ReplicaInfo oldReplica = datanode.data.moveBlockAcrossStorage(block,
             storageType, storageId);
         if (oldReplica != null) {

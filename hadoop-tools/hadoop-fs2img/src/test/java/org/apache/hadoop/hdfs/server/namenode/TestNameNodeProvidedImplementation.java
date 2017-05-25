@@ -421,26 +421,29 @@ public class TestNameNodeProvidedImplementation {
             FixedBlockResolver.class);
     startCluster(NNDIRPATH, 3, null,
         new StorageType[][] {
-            { StorageType.DISK },
-            { StorageType.DISK },
-            { StorageType.PROVIDED }},
+            {StorageType.DISK},
+            {StorageType.DISK},
+            {StorageType.PROVIDED}},
         false);
 
-    FileSystem fs = cluster.getFileSystem();
-    String dirName = "/0/dirToBackup/";
+      testBackupMultipleFiles((short) 2, 3, 3);
+    }
+
+  private void testBackupMultipleFiles(short replication, int numFiles,
+      int numBlocks) throws Exception {
+      FileSystem fs = cluster.getFileSystem();
+      String dirName = "/0/dirToBackup/";
     fs.mkdirs(new Path(dirName));
     String baseFilePath = dirName + "scheduleBlockMoves";
-
-    int numBackupFiles = 3;
-    //create 3 files!
-    for (int i = 0; i < numBackupFiles; i++) {
+    //create the files
+    for (int i = 0; i < numFiles; i++) {
       String filePath = baseFilePath + i + ".dat";
-      createFile(new Path(filePath), (short) 2, 1024 * 1024 * 3, 1024 * 1024);
+      createFile(new Path(filePath), replication, 1024 * 1024 * numBlocks, 1024 * 1024);
     }
 
     //set all files to provided
     final StoragePolicyAdmin admin = new StoragePolicyAdmin(conf);
-    for (int i = 0; i < numBackupFiles; i++) {
+    for (int i = 0; i < numFiles; i++) {
       String filePath = baseFilePath + i + ".dat";
       DFSTestUtil.toolRun(admin, "-getStoragePolicy -path " + filePath, 0,
               "The storage policy of " + filePath + " is unspecified");
@@ -448,18 +451,17 @@ public class TestNameNodeProvidedImplementation {
               .setStoragePolicy(new Path(filePath), "PROVIDED", true);
     }
     //wait for storage policy to reflect!
-    for (int i = 0; i < numBackupFiles; i++) {
+    for (int i = 0; i < numFiles; i++) {
       String filePath = baseFilePath + i + ".dat";
       DFSTestUtil.waitExpectedStorageType(filePath, StorageType.PROVIDED, 1,
-          100000, cluster.getFileSystem());
+              100000, cluster.getFileSystem());
     }
 
     //verify the files are backed up
-    for (int i = 0; i < numBackupFiles; i++) {
+    for (int i = 0; i < numFiles; i++) {
       String filePath = baseFilePath + i + ".dat";
-      verifyFileContent(fs.open(new Path(filePath)),
-          new FileInputStream(
-              new File(new Path(NAMEPATH, filePath.substring(1)).toUri())));
+      verifyFileContent(fs.open(new Path(filePath)), new FileInputStream(
+          new File(new Path(NAMEPATH, filePath.substring(1)).toUri())));
     }
   }
 }

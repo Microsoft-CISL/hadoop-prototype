@@ -224,7 +224,7 @@ public class StoragePolicyAdmin extends Configured implements Tool {
       Path p = new Path(path);
       final DistributedFileSystem dfs = AdminHelper.getDFS(p.toUri(), conf);
       try {
-        dfs.setStoragePolicy(p, policyName);
+        dfs.setStoragePolicy(p, policyName, scheduleBlockMoves);
         System.out.println("Set storage policy " + policyName + " on " + path);
       } catch (Exception e) {
         System.err.println(AdminHelper.prettifyException(e));
