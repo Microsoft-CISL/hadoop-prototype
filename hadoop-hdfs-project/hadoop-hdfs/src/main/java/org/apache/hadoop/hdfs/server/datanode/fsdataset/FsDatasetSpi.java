@@ -627,8 +627,9 @@ public interface FsDatasetSpi<V extends FsVolumeSpi> extends FSDatasetMBean {
     /**
      * Move block from one storage to another storage
      */
-   ReplicaInfo moveBlockAcrossStorage(final ExtendedBlock block,
-        StorageType targetStorageType, String storageId) throws IOException;
+  ReplicaInfo moveBlockAcrossStorage(final ExtendedBlock block,
+      StorageType targetStorageType, String storageId, BlockAlias blockAlias)
+      throws IOException;
 
   /**
    * Set a block to be pinned on this datanode so that it cannot be moved

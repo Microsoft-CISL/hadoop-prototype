@@ -929,8 +929,8 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
    */
   @Override
   public ReplicaInfo moveBlockAcrossStorage(ExtendedBlock block,
-      StorageType targetStorageType, String targetStorageId)
-      throws IOException {
+      StorageType targetStorageType, String targetStorageId,
+      BlockAlias blockAlias) throws IOException {
     ReplicaInfo replicaInfo = getReplicaInfo(block);
     if (replicaInfo.getState() != ReplicaState.FINALIZED) {
       throw new ReplicaNotFoundException(
@@ -959,7 +959,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
           block.getNumBytes());
     }
     try {
-      moveBlock(block, replicaInfo, volumeRef);
+      moveBlock(block, replicaInfo, volumeRef, blockAlias);
     } finally {
       if (volumeRef != null) {
         volumeRef.close();
@@ -980,12 +980,12 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
    * @throws IOException
    */
   private ReplicaInfo moveBlock(ExtendedBlock block, ReplicaInfo replicaInfo,
-      FsVolumeReference volumeRef) throws IOException {
+      FsVolumeReference volumeRef, BlockAlias blockAlias) throws IOException {
 
     FsVolumeImpl targetVolume = (FsVolumeImpl) volumeRef.getVolume();
     // Copy files to temp dir first
     ReplicaInfo newReplicaInfo = targetVolume.moveBlockToTmpLocation(block,
-        replicaInfo, smallBufferSize, conf);
+        replicaInfo, smallBufferSize, conf, blockAlias);
 
     // Finalize the copied files
     newReplicaInfo = finalizeReplica(block.getBlockPoolId(), newReplicaInfo);
@@ -1023,7 +1023,7 @@ class FsDatasetImpl implements FsDatasetSpi<FsVolumeImpl> {
     }
 
     try {
-      moveBlock(block, replicaInfo, volumeRef);
+      moveBlock(block, replicaInfo, volumeRef, null);
     } finally {
       if (volumeRef != null) {
         volumeRef.close();

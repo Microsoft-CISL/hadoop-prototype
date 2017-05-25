@@ -2601,7 +2601,7 @@ public class BlockManager implements BlockStatsMXBean {
     int numBlocksLogged = 0;
     for (BlockInfoToAdd b : toAdd) {
       addStoredBlock(b.stored, b.reported, storageInfo, null,
-          numBlocksLogged < maxNumBlocksToLog);
+          numBlocksLogged < maxNumBlocksToLog, node);
       numBlocksLogged++;
     }
     if (numBlocksLogged > maxNumBlocksToLog) {
@@ -2913,7 +2913,8 @@ public class BlockManager implements BlockStatsMXBean {
             storageInfo.getDatanodeDescriptor());
       } else {
         processAndHandleReportedBlock(rbi.getStorageInfo(),
-            rbi.getBlock(), rbi.getReportedState(), null);
+            rbi.getBlock(), rbi.getReportedState(), null,
+            rbi.getStorageInfo().getDatanodeDescriptor());
       }
     }
   }
@@ -3065,7 +3066,8 @@ public class BlockManager implements BlockStatsMXBean {
 
     if (ucBlock.reportedState == ReplicaState.FINALIZED &&
         (block.findStorageInfo(storageInfo) < 0)) {
-      addStoredBlock(block, ucBlock.reportedBlock, storageInfo, null, true);
+      addStoredBlock(block, ucBlock.reportedBlock, storageInfo, null, true,
+          storageInfo.getDatanodeDescriptor());
     }
   } 
 
@@ -3086,7 +3088,8 @@ public class BlockManager implements BlockStatsMXBean {
     assert (storedBlock != null && namesystem.hasWriteLock());
     if (!namesystem.isInStartupSafeMode()
         || isPopulatingReplQueues()) {
-      addStoredBlock(storedBlock, reported, storageInfo, null, false);
+      addStoredBlock(storedBlock, reported, storageInfo, null, false,
+          storageInfo.getDatanodeDescriptor());
       return;
     }
 
@@ -3116,11 +3119,11 @@ public class BlockManager implements BlockStatsMXBean {
                                final Block reportedBlock,
                                DatanodeStorageInfo storageInfo,
                                DatanodeDescriptor delNodeHint,
-                               boolean logEveryBlock)
+                               boolean logEveryBlock,
+                               DatanodeDescriptor node)
   throws IOException {
     assert block != null && namesystem.hasWriteLock();
     BlockInfo storedBlock;
-    DatanodeDescriptor node = storageInfo.getDatanodeDescriptor();
     if (!block.isComplete()) {
       //refresh our copy in case the block got completed in another thread
       storedBlock = getStoredBlock(block);
@@ -3138,7 +3141,7 @@ public class BlockManager implements BlockStatsMXBean {
     }
 
     // add block to the datanode
-    AddBlockResult result = storageInfo.addBlock(storedBlock, reportedBlock);
+    AddBlockResult result = storageInfo.addBlock(storedBlock, reportedBlock, node);
 
     int curReplicaDelta;
     if (result == AddBlockResult.ADDED) {
@@ -3762,12 +3765,12 @@ public class BlockManager implements BlockStatsMXBean {
    * The given node is reporting that it received a certain block.
    */
   @VisibleForTesting
-  void addBlock(DatanodeStorageInfo storageInfo, Block block, String delHint)
-      throws IOException {
-    DatanodeDescriptor node = storageInfo.getDatanodeDescriptor();
+  void addBlock(DatanodeStorageInfo storageInfo, Block block, String delHint,
+      DatanodeDescriptor node) throws IOException {
     // Decrement number of blocks scheduled to this datanode.
     // for a retry request (of DatanodeProtocol#blockReceivedAndDeleted with 
-    // RECEIVED_BLOCK), we currently also decrease the approximate number. 
+    // RECEIVED_BLOCK), we currently also decrease the approximate number.
+    //TODO how should operation work for PROVIDED storage?
     node.decrementBlocksScheduled(storageInfo.getStorageType());
 
     // get the deletion hint node
@@ -3788,15 +3791,14 @@ public class BlockManager implements BlockStatsMXBean {
       pendingReconstruction.decrement(storedBlock, node);
     }
     processAndHandleReportedBlock(storageInfo, block, ReplicaState.FINALIZED,
-        delHintNode);
+        delHintNode, node);
   }
   
   private void processAndHandleReportedBlock(
       DatanodeStorageInfo storageInfo, Block block,
-      ReplicaState reportedState, DatanodeDescriptor delHintNode)
+      ReplicaState reportedState, DatanodeDescriptor delHintNode,
+      final DatanodeDescriptor node)
       throws IOException {
-
-    final DatanodeDescriptor node = storageInfo.getDatanodeDescriptor();
 
     if(LOG.isDebugEnabled()) {
       LOG.debug("Reported block " + block
@@ -3863,7 +3865,7 @@ public class BlockManager implements BlockStatsMXBean {
     if (reportedState == ReplicaState.FINALIZED
         && (storedBlock.findStorageInfo(storageInfo) == -1 ||
             corruptReplicas.isReplicaCorrupt(storedBlock, node))) {
-      addStoredBlock(storedBlock, block, storageInfo, delHintNode, true);
+      addStoredBlock(storedBlock, block, storageInfo, delHintNode, true, node);
     }
   }
 
@@ -3919,13 +3921,13 @@ public class BlockManager implements BlockStatsMXBean {
         deleted++;
         break;
       case RECEIVED_BLOCK:
-        addBlock(storageInfo, rdbi.getBlock(), rdbi.getDelHints());
+        addBlock(storageInfo, rdbi.getBlock(), rdbi.getDelHints(), node);
         received++;
         break;
       case RECEIVING_BLOCK:
         receiving++;
         processAndHandleReportedBlock(storageInfo, rdbi.getBlock(),
-                                      ReplicaState.RBW, null);
+                                      ReplicaState.RBW, null, node);
         break;
       default:
         String msg = 

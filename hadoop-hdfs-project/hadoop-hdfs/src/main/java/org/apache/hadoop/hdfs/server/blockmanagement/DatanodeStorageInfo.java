@@ -240,11 +240,19 @@ public class DatanodeStorageInfo {
   }
 
   public AddBlockResult addBlock(BlockInfo b, Block reportedBlock) {
+    return addBlock(b, reportedBlock, getDatanodeDescriptor());
+  }
+
+  public AddBlockResult addBlock(BlockInfo b, Block reportedBlock,
+      DatanodeDescriptor node) {
+    //an explicit node is added here for PROVIDED storage!
     // First check whether the block belongs to a different storage
     // on the same DN.
     AddBlockResult result = AddBlockResult.ADDED;
-    DatanodeStorageInfo otherStorage =
-        b.findStorageInfo(getDatanodeDescriptor());
+    if (this.getStorageType() != StorageType.PROVIDED) {
+      assert node == getDatanodeDescriptor();
+    }
+    DatanodeStorageInfo otherStorage = b.findStorageInfo(node);
 
     if (otherStorage != null) {
       if (otherStorage != this) {

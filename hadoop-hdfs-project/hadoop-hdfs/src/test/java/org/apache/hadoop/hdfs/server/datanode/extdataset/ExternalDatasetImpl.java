@@ -342,7 +342,8 @@ public class ExternalDatasetImpl implements FsDatasetSpi<ExternalVolumeImpl> {
 
   @Override
   public ReplicaInfo moveBlockAcrossStorage(ExtendedBlock block,
-      StorageType targetStorageType, String storageId) throws IOException {
+      StorageType targetStorageType, String storageId, BlockAlias blockAlias)
+      throws IOException {
     return null;
   }
 

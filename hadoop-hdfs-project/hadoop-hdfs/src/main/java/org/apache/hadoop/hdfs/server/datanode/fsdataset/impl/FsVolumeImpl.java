@@ -1422,7 +1422,8 @@ public class FsVolumeImpl implements FsVolumeSpi {
   public ReplicaInfo moveBlockToTmpLocation(ExtendedBlock block,
       ReplicaInfo replicaInfo,
       int smallBufferSize,
-      Configuration conf) throws IOException {
+      Configuration conf,
+      BlockAlias blockAlias) throws IOException {
 
     File[] blockFiles = FsDatasetImpl.copyBlockFiles(block.getBlockId(),
         block.getGenerationStamp(), replicaInfo,

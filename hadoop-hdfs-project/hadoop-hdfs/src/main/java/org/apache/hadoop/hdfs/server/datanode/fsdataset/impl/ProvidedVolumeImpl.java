@@ -19,6 +19,8 @@ package org.apache.hadoop.hdfs.server.datanode.fsdataset.impl;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.URI;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -42,6 +44,7 @@ import org.apache.hadoop.hdfs.server.common.TextFileRegionProvider;
 import org.apache.hadoop.hdfs.server.common.HdfsServerConstants.ReplicaState;
 import org.apache.hadoop.hdfs.server.datanode.ProvidedReplicaBeingWritten;
 import org.apache.hadoop.hdfs.server.datanode.ProvidedReplicaInPipeline;
+import org.apache.hadoop.hdfs.server.datanode.Replica;
 import org.apache.hadoop.hdfs.server.datanode.ReplicaInPipeline;
 import org.apache.hadoop.hdfs.server.datanode.ReplicaInfo;
 import org.apache.hadoop.hdfs.server.datanode.DirectoryScanner.ReportCompiler;
@@ -49,6 +52,7 @@ import org.apache.hadoop.hdfs.server.datanode.checker.VolumeCheckResult;
 import org.apache.hadoop.hdfs.server.datanode.fsdataset.FsVolumeSpi;
 import org.apache.hadoop.hdfs.server.datanode.FileIoProvider;
 import org.apache.hadoop.hdfs.server.datanode.ReplicaBuilder;
+import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.util.Timer;
 import org.apache.hadoop.util.DiskChecker.DiskErrorException;
 import org.apache.hadoop.util.AutoCloseableLock;
@@ -76,12 +80,12 @@ public class ProvidedVolumeImpl extends FsVolumeImpl {
     private ReplicaMap bpVolumeMap;
 
     ProvidedBlockPoolSlice(String bpid, ProvidedVolumeImpl volume,
-        Configuration conf) {
+                           Configuration conf) {
       this.providedVolume = volume;
       bpVolumeMap = new ReplicaMap(new AutoCloseableLock());
       Class<? extends FileRegionProvider> fmt =
-          conf.getClass(DFSConfigKeys.DFS_PROVIDER_CLASS,
-              TextFileRegionProvider.class, FileRegionProvider.class);
+              conf.getClass(DFSConfigKeys.DFS_PROVIDER_CLASS,
+                      TextFileRegionProvider.class, FileRegionProvider.class);
       provider = ReflectionUtils.newInstance(fmt, conf);
       this.conf = conf;
       this.bpid = bpid;
@@ -94,30 +98,30 @@ public class ProvidedVolumeImpl extends FsVolumeImpl {
     }
 
     public void getVolumeMap(ReplicaMap volumeMap,
-        RamDiskReplicaTracker ramDiskReplicaMap) throws IOException {
+                             RamDiskReplicaTracker ramDiskReplicaMap) throws IOException {
       Iterator<FileRegion> iter = provider.iterator();
-      while(iter.hasNext()) {
+      while (iter.hasNext()) {
         FileRegion region = iter.next();
         if (region.getBlockPoolId() != null &&
-            region.getBlockPoolId().equals(bpid)) {
+                region.getBlockPoolId().equals(bpid)) {
           ReplicaInfo newReplica = new ReplicaBuilder(ReplicaState.FINALIZED)
-              .setBlockId(region.getBlock().getBlockId())
-              .setURI(region.getPath().toUri())
-              .setOffset(region.getOffset())
-              .setLength(region.getBlock().getNumBytes())
-              .setGenerationStamp(region.getBlock().getGenerationStamp())
-              .setFsVolume(providedVolume)
-              .setConf(conf).build();
+                  .setBlockId(region.getBlock().getBlockId())
+                  .setURI(region.getPath().toUri())
+                  .setOffset(region.getOffset())
+                  .setLength(region.getBlock().getNumBytes())
+                  .setGenerationStamp(region.getBlock().getGenerationStamp())
+                  .setFsVolume(providedVolume)
+                  .setConf(conf).build();
 
           ReplicaInfo oldReplica =
-              volumeMap.get(bpid, newReplica.getBlockId());
+                  volumeMap.get(bpid, newReplica.getBlockId());
           if (oldReplica == null) {
             volumeMap.add(bpid, newReplica);
             bpVolumeMap.add(bpid, newReplica);
           } else {
             throw new IOException(
-                "A block with id " + newReplica.getBlockId() +
-                " already exists in the volumeMap");
+                    "A block with id " + newReplica.getBlockId() +
+                            " already exists in the volumeMap");
           }
         }
       }
@@ -132,7 +136,7 @@ public class ProvidedVolumeImpl extends FsVolumeImpl {
     }
 
     public void compileReport(LinkedList<ScanInfo> report,
-        ReportCompiler reportCompiler)
+                              ReportCompiler reportCompiler)
             throws IOException, InterruptedException {
       /* refresh the provider and return the list of blocks found.
        * the assumption here is that the block ids in the external
@@ -142,14 +146,14 @@ public class ProvidedVolumeImpl extends FsVolumeImpl {
        */
       provider.refresh();
       Iterator<FileRegion> iter = provider.iterator();
-      while(iter.hasNext()) {
+      while (iter.hasNext()) {
         reportCompiler.throttle();
         FileRegion region = iter.next();
         if (region.getBlockPoolId().equals(bpid)) {
           LOG.info("Adding ScanInfo for blkid " +
-              region.getBlock().getBlockId());
+                  region.getBlock().getBlockId());
           report.add(new ScanInfo(region.getBlock().getBlockId(), null, null,
-              providedVolume, region, region.getLength()));
+                  providedVolume, region, region.getLength()));
         }
       }
     }
@@ -157,22 +161,22 @@ public class ProvidedVolumeImpl extends FsVolumeImpl {
 
   private URI baseURI;
   private final Map<String, ProvidedBlockPoolSlice> bpSlices =
-      new ConcurrentHashMap<String, ProvidedBlockPoolSlice>();
+          new ConcurrentHashMap<String, ProvidedBlockPoolSlice>();
 
   private ProvidedVolumeDF df;
   private Configuration conf;
 
   ProvidedVolumeImpl(FsDatasetImpl dataset, String storageID,
-      StorageDirectory sd, FileIoProvider fileIoProvider,
-      Configuration conf) throws IOException {
+                     StorageDirectory sd, FileIoProvider fileIoProvider,
+                     Configuration conf) throws IOException {
     super(dataset, storageID, sd, fileIoProvider, conf);
-    assert getStorageLocation().getStorageType() == StorageType.PROVIDED:
-      "Only provided storages must use ProvidedVolume";
+    assert getStorageLocation().getStorageType() == StorageType.PROVIDED :
+            "Only provided storages must use ProvidedVolume";
 
     baseURI = getStorageLocation().getUri();
     Class<? extends ProvidedVolumeDF> dfClass =
-        conf.getClass(DFSConfigKeys.DFS_PROVIDER_DF_CLASS,
-            DefaultProvidedVolumeDF.class, ProvidedVolumeDF.class);
+            conf.getClass(DFSConfigKeys.DFS_PROVIDER_DF_CLASS,
+                    DefaultProvidedVolumeDF.class, ProvidedVolumeDF.class);
     df = ReflectionUtils.newInstance(dfClass, conf);
     this.conf = conf;
   }
@@ -228,7 +232,7 @@ public class ProvidedVolumeImpl extends FsVolumeImpl {
   @Override
   public void reserveSpaceForReplica(long bytesToReserve) {
     throw new UnsupportedOperationException(
-        "ProvidedVolume does not yet support writes");
+            "ProvidedVolume does not yet support writes");
   }
 
   @Override
@@ -238,9 +242,9 @@ public class ProvidedVolumeImpl extends FsVolumeImpl {
   }
 
   private static final ObjectWriter WRITER =
-      new ObjectMapper().writerWithDefaultPrettyPrinter();
+          new ObjectMapper().writerWithDefaultPrettyPrinter();
   private static final ObjectReader READER =
-      new ObjectMapper().reader(ProvidedBlockIteratorState.class);
+          new ObjectMapper().reader(ProvidedBlockIteratorState.class);
 
   private static class ProvidedBlockIteratorState {
     ProvidedBlockIteratorState() {
@@ -269,7 +273,7 @@ public class ProvidedVolumeImpl extends FsVolumeImpl {
   }
 
   private class ProviderBlockIteratorImpl
-      implements FsVolumeSpi.BlockIterator {
+          implements FsVolumeSpi.BlockIterator {
 
     private String bpid;
     private String name;
@@ -278,7 +282,7 @@ public class ProvidedVolumeImpl extends FsVolumeImpl {
     private ProvidedBlockIteratorState state;
 
     ProviderBlockIteratorImpl(String bpid, String name,
-        FileRegionProvider provider) {
+                              FileRegionProvider provider) {
       this.bpid = bpid;
       this.name = name;
       this.provider = provider;
@@ -314,7 +318,7 @@ public class ProvidedVolumeImpl extends FsVolumeImpl {
 
     @Override
     public boolean atEnd() {
-      return blockIterator != null ? !blockIterator.hasNext(): true;
+      return blockIterator != null ? !blockIterator.hasNext() : true;
     }
 
     @Override
@@ -354,76 +358,76 @@ public class ProvidedVolumeImpl extends FsVolumeImpl {
       //on load, we just rewind the iterator for provided volumes.
       rewind();
       LOG.trace("load({}, {}): loaded iterator {}: {}", getStorageID(),
-          bpid, name, WRITER.writeValueAsString(state));
+              bpid, name, WRITER.writeValueAsString(state));
     }
   }
 
   @Override
   public BlockIterator newBlockIterator(String bpid, String name) {
     return new ProviderBlockIteratorImpl(bpid, name,
-        bpSlices.get(bpid).getFileRegionProvider());
+            bpSlices.get(bpid).getFileRegionProvider());
   }
 
   @Override
   public BlockIterator loadBlockIterator(String bpid, String name)
-      throws IOException {
+          throws IOException {
     ProviderBlockIteratorImpl iter = new ProviderBlockIteratorImpl(bpid, name,
-        bpSlices.get(bpid).getFileRegionProvider());
+            bpSlices.get(bpid).getFileRegionProvider());
     iter.load();
     return iter;
   }
 
   @Override
   ReplicaInfo addFinalizedBlock(String bpid, Block b,
-      ReplicaInfo replicaInfo, long bytesReserved) throws IOException {
+                                ReplicaInfo replicaInfo, long bytesReserved) throws IOException {
 
     // TODO do reservations matter for ProvidedVolumes
     releaseReservedSpace(bytesReserved);
 
     if (replicaInfo.getState() == ReplicaState.RBW
-        || replicaInfo.getState() == ReplicaState.TEMPORARY) {
+            || replicaInfo.getState() == ReplicaState.TEMPORARY) {
       ProvidedReplicaInPipeline rip = (ProvidedReplicaInPipeline) replicaInfo;
       boolean success =
-          getFileRegionProvider(bpid).finalize(
-              new FileRegion(rip.getBlockId(), new Path(rip.getBlockURI()),
-                  rip.getOffset(), rip.getVisibleLength(), bpid,
-                  rip.getGenerationStamp()));
+              getFileRegionProvider(bpid).finalize(
+                      new FileRegion(rip.getBlockId(), new Path(rip.getBlockURI()),
+                              rip.getOffset(), rip.getNumBytes(), bpid,
+                              rip.getGenerationStamp()));
       if (!success) {
         throw new IOException(
-            "Update of FileRegionProvider failed for Provided block " + b);
+                "Update of FileRegionProvider failed for Provided block " + b);
       }
       return new ReplicaBuilder(ReplicaState.FINALIZED)
-          .setBlockId(replicaInfo.getBlockId())
-          .setURI(rip.getBlockURI())
-          .setOffset(rip.getOffset())
-          .setLength(replicaInfo.getVisibleLength())
-          .setGenerationStamp(replicaInfo.getGenerationStamp())
-          .setFsVolume(this)
-          .setConf(conf).build();
+              .setBlockId(replicaInfo.getBlockId())
+              .setURI(rip.getBlockURI())
+              .setOffset(rip.getOffset())
+              .setLength(replicaInfo.getNumBytes())
+              .setGenerationStamp(replicaInfo.getGenerationStamp())
+              .setFsVolume(this)
+              .setConf(conf).build();
     } else {
       throw new UnsupportedOperationException(
-          "State of replica " + replicaInfo + " is not RBW");
+              "State of replica " + replicaInfo + " is not RBW");
     }
   }
 
   @Override
   public VolumeCheckResult check(VolumeCheckContext ignored)
-      throws DiskErrorException {
+          throws DiskErrorException {
     return VolumeCheckResult.HEALTHY;
   }
 
   @Override
   void getVolumeMap(ReplicaMap volumeMap,
-      final RamDiskReplicaTracker ramDiskReplicaMap)
+                    final RamDiskReplicaTracker ramDiskReplicaMap)
           throws IOException {
     LOG.info("Creating volumemap for provided volume " + this);
-    for(ProvidedBlockPoolSlice s : bpSlices.values()) {
+    for (ProvidedBlockPoolSlice s : bpSlices.values()) {
       s.getVolumeMap(volumeMap, ramDiskReplicaMap);
     }
   }
 
   private ProvidedBlockPoolSlice getProvidedBlockPoolSlice(String bpid)
-      throws IOException {
+          throws IOException {
     ProvidedBlockPoolSlice bp = bpSlices.get(bpid);
     if (bp == null) {
       throw new IOException("block pool " + bpid + " is not found");
@@ -433,7 +437,7 @@ public class ProvidedVolumeImpl extends FsVolumeImpl {
 
   @Override
   void getVolumeMap(String bpid, ReplicaMap volumeMap,
-      final RamDiskReplicaTracker ramDiskReplicaMap)
+                    final RamDiskReplicaTracker ramDiskReplicaMap)
           throws IOException {
     getProvidedBlockPoolSlice(bpid).getVolumeMap(volumeMap, ramDiskReplicaMap);
   }
@@ -455,9 +459,9 @@ public class ProvidedVolumeImpl extends FsVolumeImpl {
 
   @Override
   void addBlockPool(String bpid, Configuration conf, Timer timer)
-      throws IOException {
+          throws IOException {
     LOG.info("Adding block pool " + bpid +
-        " to volume with id " + getStorageID());
+            " to volume with id " + getStorageID());
     ProvidedBlockPoolSlice bp;
     bp = new ProvidedBlockPoolSlice(bpid, this, conf);
     bpSlices.put(bpid, bp);
@@ -490,16 +494,16 @@ public class ProvidedVolumeImpl extends FsVolumeImpl {
   @Override
   void deleteBPDirectories(String bpid, boolean force) throws IOException {
     throw new UnsupportedOperationException(
-        "ProvidedVolume does not yet support writes");
+            "ProvidedVolume does not yet support writes");
   }
 
   @Override
   public LinkedList<ScanInfo> compileReport(String bpid,
-      LinkedList<ScanInfo> report, ReportCompiler reportCompiler)
+                                            LinkedList<ScanInfo> report, ReportCompiler reportCompiler)
           throws InterruptedException, IOException {
     LOG.info("Compiling report for volume: " + this + " bpid " + bpid);
     //get the report from the appropriate block pool.
-    if(bpSlices.containsKey(bpid)) {
+    if (bpSlices.containsKey(bpid)) {
       bpSlices.get(bpid).compileReport(report, reportCompiler);
     }
     return report;
@@ -507,7 +511,7 @@ public class ProvidedVolumeImpl extends FsVolumeImpl {
 
   @Override
   public ReplicaInPipeline append(String bpid, ReplicaInfo replicaInfo,
-      long newGS, long estimateBlockLen, BlockAlias blockAlias) throws IOException {
+                                  long newGS, long estimateBlockLen, BlockAlias blockAlias) throws IOException {
 
     //TODO what to reserve for this Replica?
     //TODO reserveSpaceForReplica(bytesReserved);
@@ -516,38 +520,38 @@ public class ProvidedVolumeImpl extends FsVolumeImpl {
     FileRegion region = (FileRegion) blockAlias;
 
     return new ProvidedReplicaBeingWritten(replicaInfo.getBlockId(),
-        region.getPath().toUri(), region.getOffset() + region.getLength(),
-        replicaInfo.getNumBytes(), newGS, this, conf, bytesReserved,
-        Thread.currentThread());
+            region.getPath().toUri(), region.getOffset() + region.getLength(),
+            replicaInfo.getNumBytes(), newGS, this, conf, bytesReserved,
+            Thread.currentThread());
   }
 
   @Override
   public ReplicaInPipeline createRbw(ExtendedBlock b,
-      BlockAlias blockAlias) throws IOException {
+                                     BlockAlias blockAlias) throws IOException {
 
     FileRegion newRegion = (FileRegion) blockAlias;
     //TODO what to reserve for this Replica?
     return new ProvidedReplicaBeingWritten(b.getBlockId(),
-        newRegion.getPath().toUri(), newRegion.getOffset(), b.getNumBytes(),
-        b.getGenerationStamp(), this, conf, 0L, Thread.currentThread());
+            newRegion.getPath().toUri(), newRegion.getOffset(), b.getNumBytes(),
+            b.getGenerationStamp(), this, conf, 0L, Thread.currentThread());
   }
 
   @Override
   public ReplicaInPipeline convertTemporaryToRbw(ExtendedBlock b,
-      ReplicaInfo temp) throws IOException {
+                                                 ReplicaInfo temp) throws IOException {
     throw new UnsupportedOperationException(
-        "ProvidedVolume does not yet support writes");
+            "ProvidedVolume does not yet support writes");
   }
 
   @Override
   public ReplicaInPipeline createTemporary(ExtendedBlock b, BlockAlias blockAlias)
-      throws IOException {
+          throws IOException {
     FileRegion newRegion = (FileRegion) blockAlias;
     //TODO what to reserve for this Replica?
     return new ProvidedReplicaInPipeline(b.getBlockId(),
-        newRegion.getPath().toUri(), newRegion.getOffset(),
-        0L, b.getGenerationStamp(), this, conf, b.getLocalBlock().getNumBytes(),
-        Thread.currentThread());
+            newRegion.getPath().toUri(), newRegion.getOffset(),
+            0L, b.getGenerationStamp(), this, conf, b.getLocalBlock().getNumBytes(),
+            Thread.currentThread());
   }
 
   @Override
@@ -555,15 +559,36 @@ public class ProvidedVolumeImpl extends FsVolumeImpl {
       String bpid, long newBlockId, long recoveryId, long newlength)
           throws IOException {
     throw new UnsupportedOperationException(
-        "ProvidedVolume does not yet support writes");
+            "ProvidedVolume does not yet support writes");
   }
 
   @Override
   public ReplicaInfo moveBlockToTmpLocation(ExtendedBlock block,
-      ReplicaInfo replicaInfo, int smallBufferSize, Configuration conf)
-      throws IOException {
-    throw new UnsupportedOperationException(
-        "ProvidedVolume does not yet support writes");
+      ReplicaInfo replicaInfo, int smallBufferSize, Configuration conf,
+      BlockAlias blockAlias) throws IOException {
+    
+    //TODO recover if the copy below fails!
+    // in particular recover the provided file!
+    ProvidedReplicaInPipeline tmp =
+            (ProvidedReplicaInPipeline) createTemporary(block, blockAlias);
+    OutputStream out = tmp.createStreams(true, null).getDataOut();
+    InputStream ins = replicaInfo.getDataInputStream(0);
+
+    final byte[] data = new byte[1 << 16];
+    while (true) {
+      int numRead = ins.read(data, 0, data.length);
+      if (numRead != -1) {
+        out.write(data, 0, numRead);
+      } else {
+        //stream done!
+        break;
+      }
+    }
+    out.flush();
+    IOUtils.closeStream(out);
+    IOUtils.closeStream(ins);
+    tmp.setNumBytes(replicaInfo.getNumBytes());
+    return tmp;
   }
 
   @Override
@@ -571,6 +596,11 @@ public class ProvidedVolumeImpl extends FsVolumeImpl {
       long genStamp, ReplicaInfo replicaInfo, int smallBufferSize,
       Configuration conf) throws IOException {
     throw new UnsupportedOperationException(
-        "ProvidedVolume does not yet support writes");
+            "ProvidedVolume does not yet support writes");
+  }
+
+  @Override
+  public void incrNumBlocks(String bpid) throws IOException {
+    //TODO keep track of number of blocks!
   }
 }

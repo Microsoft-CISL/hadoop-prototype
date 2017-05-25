@@ -423,7 +423,7 @@ public class TestNameNodeProvidedImplementation {
         new StorageType[][] {
             {StorageType.DISK},
             {StorageType.DISK},
-            {StorageType.PROVIDED}},
+            {StorageType.PROVIDED, StorageType.DISK}},
         false);
 
       testBackupMultipleFiles((short) 2, 3, 3);
