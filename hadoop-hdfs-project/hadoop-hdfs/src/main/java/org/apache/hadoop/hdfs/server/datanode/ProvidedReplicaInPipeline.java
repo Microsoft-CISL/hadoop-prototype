@@ -30,6 +30,8 @@ import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.util.DataChecksum;
 import org.apache.hadoop.util.StringUtils;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URI;
@@ -262,7 +264,16 @@ public class ProvidedReplicaInPipeline extends ProvidedReplica
         }
         blockOut = remoteFS.create(new Path(blockURI));
       }
-      crcOut = remoteFS.create(new Path(blockURI.getPath() + ".meta." + getBlockId()));
+      //Currently crc is written out to local tmp dir
+      //TODO persist it on the remote store!
+      String localTmpDir = conf.get("hadoop.tmp.dir");
+      if (localTmpDir.length() == 0) {
+        localTmpDir = "/tmp/";
+      }
+      File crcFile = new File(localTmpDir + File.separator + getBlockId() + ".meta.");
+      crcFile.getParentFile().mkdirs();
+      crcOut = new FileOutputStream(crcFile);
+
       if (!isCreate) {
         // TODO For append or recovery of block
       }
